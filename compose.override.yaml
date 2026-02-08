@@ -1,0 +1,22 @@
+version: "3.9"
+
+services:
+  server:
+    build:
+      context: .
+    volumes:
+      - .:/var/www/html
+    command: php artisan serve --host=0.0.0.0 --port=80
+    ports:
+      - "30000:80"
+    depends_on:
+      - db
+    networks:
+      - dokploy-staging-network
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  db:
+    ports:
+      - "3315:3306"

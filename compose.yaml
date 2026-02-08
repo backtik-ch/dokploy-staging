@@ -1,0 +1,35 @@
+services:
+  server:
+    image: dokploy-staging-app
+    build:
+      context: .
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - dokploy-staging-network
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  db:
+    image: mariadb:11
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - db-data:/var/lib/mysql
+    networks:
+      - dokploy-staging-network
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb -h 127.0.0.1 -u $MARIADB_USER --password=$MARIADB_PASSWORD -e 'SELECT 1;' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db-data:
+
+networks:
+  dokploy-staging-network:
+    driver: bridge
