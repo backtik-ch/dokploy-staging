@@ -24,11 +24,14 @@ class StagingsTable
             ])
             ->recordActions([
                 Action::make('deploy')
+                    ->color('success')
                     ->action(fn(Staging $record) =>
                         app(DeployService::class)
                             ->deploy($record->project, 'create', $record->pr_number, $record->branch)),
 
                 Action::make('delete')
+                    ->requiresConfirmation()
+                    ->color('danger')
                     ->action(fn(Staging $record) =>
                     app(DeployService::class)
                         ->deploy($record->project, 'delete', $record->pr_number, $record->branch)),
