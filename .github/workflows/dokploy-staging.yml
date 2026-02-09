@@ -1,0 +1,51 @@
+name: Dokploy Staging (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      project_id:
+        required: true
+        type: number
+      dokploy_api_url:
+        required: true
+        type: string
+    secrets:
+      dokploy_token:
+        required: true
+
+jobs:
+  dokploy-staging:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy staging
+        if: ${{ github.event.action != 'closed' }}
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BRANCH_NAME: ${{ github.head_ref }}
+        run: |
+          echo "Deploying staging for PR #${PR_NUMBER}"
+
+          curl -f -X POST "${{ inputs.dokploy_api_url }}/deploy" \
+            -H "Authorization: Bearer ${{ secrets.dokploy_token }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"project_id\": ${{ inputs.project_id }},
+              \"pr_number\": \"${PR_NUMBER}\",
+              \"branch\": \"${BRANCH_NAME}\"
+            }"
+
+      - name: Remove staging
+        if: ${{ github.event.action == 'closed' }}
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo "Removing staging for PR #${PR_NUMBER}"
+
+          curl -f -X DELETE "${{ inputs.dokploy_api_url }}/remove" \
+            -H "Authorization: Bearer ${{ secrets.dokploy_token }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"project_id\": ${{ inputs.project_id }},
+              \"pr_number\": \"${PR_NUMBER}\"
+            }"
