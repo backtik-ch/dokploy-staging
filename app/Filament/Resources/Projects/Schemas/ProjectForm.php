@@ -36,7 +36,7 @@ class ProjectForm
 
                 TagsInput::make('extra_sub_domains'),
 
-                Textarea::make('environment_staging')
+                Textarea::make('environment_staging'),
             ]);
     }
 }

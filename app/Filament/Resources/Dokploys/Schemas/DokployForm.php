@@ -12,7 +12,7 @@ class DokployForm
         return $schema
             ->components([
                 TextInput::make('base_url'),
-                TextInput::make('token')
+                TextInput::make('token'),
             ]);
     }
 }

@@ -12,7 +12,7 @@ class CreateToken extends CreateRecord
 
     protected function handleRecordCreation(array $data): Model
     {
-        $token =  auth()->user()->createToken('auto_'.now()->timestamp);
+        $token = auth()->user()->createToken('auto_'.now()->timestamp);
 
         return $token->accessToken;
     }

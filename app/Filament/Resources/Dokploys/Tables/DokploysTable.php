@@ -16,7 +16,7 @@ class DokploysTable
             ->columns([
                 TextColumn::make('base_url'),
                 TextColumn::make('token')
-                    ->limit(40)
+                    ->limit(40),
             ])
             ->filters([
                 //

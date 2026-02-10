@@ -7,8 +7,10 @@ use App\Models\Staging;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
-class DeployService {
-    public function deploy(Project $project, string $action, int $prNumber, string $branch): ?Staging {
+class DeployService
+{
+    public function deploy(Project $project, string $action, int $prNumber, string $branch): ?Staging
+    {
         $stagingName = "staging-mr-{$prNumber}";
 
         $staging = Staging::where([
@@ -18,12 +20,13 @@ class DeployService {
 
         if ($action === 'create') {
 
-            if($staging) {
+            if ($staging) {
                 $this->deployCompose($project, $staging->compose_id);
+
                 return $staging;
             }
 
-            //$this->info("Creating staging for PR #{$prNumber}");
+            // $this->info("Creating staging for PR #{$prNumber}");
 
             $envId = $this->createEnvironment($project, $stagingName);
             $composeId = $this->createCompose($project, $envId);
@@ -39,7 +42,7 @@ class DeployService {
                 'branch' => $branch,
                 'compose_id' => $composeId,
                 'environment_id' => $envId,
-                'environment' => $env
+                'environment' => $env,
             ]);
         }
 
@@ -54,7 +57,6 @@ class DeployService {
 
         return null;
     }
-
 
     protected function createEnvironment(Project $project, string $stagingName): string
     {
@@ -76,14 +78,14 @@ class DeployService {
             dd('Failed to create environment: '.json_encode($response));
         }
 
-        //$this->info("✅ Environment ID: $envId");
+        // $this->info("✅ Environment ID: $envId");
 
         return $envId;
     }
 
     protected function createCompose(Project $project, string $envId): string
     {
-        $response = $this->post($project,'compose.create', [
+        $response = $this->post($project, 'compose.create', [
             '0' => [
                 'json' => [
                     'name' => 'app',
@@ -97,7 +99,7 @@ class DeployService {
         ]);
 
         $composeId = $response['0']['result']['data']['json']['composeId'] ?? null;
-        //$this->info("✅ Compose ID: $composeId");
+        // $this->info("✅ Compose ID: $composeId");
 
         return $composeId;
     }
@@ -150,30 +152,33 @@ class DeployService {
 
     protected function createDomain(Project $project, string $composeId, string $stagingName): void
     {
-        $baseConfig = [
-            'domainId'        => '',
-            'composeId'       => $composeId,
-            'port'            => 80,
-            'https'           => true,
+        $basePayload = [
+            'domainId' => '',
+            'composeId' => $composeId,
+            'port' => 80,
+            'https' => true,
             'certificateType' => 'letsencrypt',
-            'serviceName'     => 'server',
-            'domainType'      => 'compose',
+            'serviceName' => 'server',
+            'domainType' => 'compose',
         ];
 
-        $hosts = array_merge(
-            ["{$stagingName}.{$project->domain_name}"],
-            array_map(
-                fn ($extra) => "{$extra}.{$stagingName}.{$project->domain_name}",
-                $project->extra_sub_domains
-            )
-        );
+        $this->post($project, 'domain.create', [
+            '0' => [
+                'json' => $basePayload + [
+                    'host' => "{$stagingName}.{$project->domain_name}",
+                ],
+            ],
+        ]);
 
-        $domains = array_map(
-            fn ($host) => ['json' => $baseConfig + ['host' => $host]],
-            $hosts
-        );
-
-        $this->post($project, 'domain.create', $domains);
+        foreach ($project->extra_sub_domains as $extra) {
+            $this->post($project, 'domain.create', [
+                '0' => [
+                    'json' => $basePayload + [
+                        'host' => "{$extra}.{$stagingName}.{$project->domain_name}",
+                    ],
+                ],
+            ]);
+        }
     }
 
     protected function deleteEnvironment(Project $project, string $envId): void

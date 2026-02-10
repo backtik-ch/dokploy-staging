@@ -11,6 +11,7 @@ class Dokploy extends Model
 {
     /** @use HasFactory<\Database\Factories\DokployFactory> */
     use HasFactory;
+
     use SoftDeletes;
 
     protected $guarded = ['id'];
@@ -18,7 +19,7 @@ class Dokploy extends Model
     protected function casts(): array
     {
         return [
-            'token' => 'encrypted'
+            'token' => 'encrypted',
         ];
     }
 

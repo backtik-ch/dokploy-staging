@@ -12,7 +12,8 @@ class Project extends Model
 {
     /** @use HasFactory<\Database\Factories\ProjectFactory> */
     use HasFactory;
-use SoftDeletes;
+
+    use SoftDeletes;
 
     protected $guarded = ['id'];
 
@@ -20,10 +21,9 @@ use SoftDeletes;
     {
         return [
             'environment_staging' => 'encrypted',
-            'extra_sub_domains' => 'array'
+            'extra_sub_domains' => 'array',
         ];
     }
-
 
     public function dokploy(): BelongsTo
     {

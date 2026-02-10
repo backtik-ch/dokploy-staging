@@ -4,7 +4,6 @@ namespace App\Filament\Resources\Tokens\Pages;
 
 use App\Filament\Resources\Tokens\TokenResource;
 use Filament\Actions\Action;
-use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 
 class ListTokens extends ListRecords
@@ -15,11 +14,11 @@ class ListTokens extends ListRecords
     {
         return [
             Action::make('create')
-            ->action(function () {
-                $token =  auth()->user()->createToken('auto_'.now()->timestamp);
+                ->action(function () {
+                    $token = auth()->user()->createToken('auto_'.now()->timestamp);
 
-                dd($token);
-            })
+                    dd($token);
+                }),
         ];
     }
 }

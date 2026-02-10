@@ -21,10 +21,10 @@ class EditProject extends EditRecord
                     TextInput::make('pr_number'),
                     TextInput::make('branch'),
                 ])
-            ->action(function($record, $data) {
-                app(DeployService::class)
-                    ->deploy($record, 'create', $data['pr_number'], $data['branch']);
-            }),
+                ->action(function ($record, $data) {
+                    app(DeployService::class)
+                        ->deploy($record, 'create', $data['pr_number'], $data['branch']);
+                }),
             DeleteAction::make(),
         ];
     }

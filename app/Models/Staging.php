@@ -11,15 +11,15 @@ class Staging extends Model
 {
     /** @use HasFactory<\Database\Factories\StagingFactory> */
     use HasFactory;
+
     use SoftDeletes;
 
     protected $guarded = ['id'];
 
-
     protected function casts(): array
     {
         return [
-            'environment' => 'encrypted'
+            'environment' => 'encrypted',
         ];
     }
 

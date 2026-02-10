@@ -10,7 +10,6 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Tiptap\Nodes\Text;
 
 class StagingsTable
 {
@@ -20,7 +19,7 @@ class StagingsTable
             ->columns([
                 TextColumn::make('id'),
                 TextColumn::make('pr_number'),
-                TextColumn::make('branch')
+                TextColumn::make('branch'),
             ])
             ->filters([
                 //
@@ -28,15 +27,13 @@ class StagingsTable
             ->recordActions([
                 Action::make('deploy')
                     ->color('success')
-                    ->action(fn(Staging $record) =>
-                        app(DeployService::class)
-                            ->deploy($record->project, 'create', $record->pr_number, $record->branch)),
+                    ->action(fn (Staging $record) => app(DeployService::class)
+                        ->deploy($record->project, 'create', $record->pr_number, $record->branch)),
 
                 Action::make('delete')
                     ->requiresConfirmation()
                     ->color('danger')
-                    ->action(fn(Staging $record) =>
-                    app(DeployService::class)
+                    ->action(fn (Staging $record) => app(DeployService::class)
                         ->deploy($record->project, 'delete', $record->pr_number, $record->branch)),
 
                 EditAction::make(),
