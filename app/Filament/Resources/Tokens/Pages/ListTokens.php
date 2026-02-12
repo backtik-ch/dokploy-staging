@@ -13,12 +13,17 @@ class ListTokens extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('create')
-                ->action(function () {
+            Action::make('generateToken')
+                ->label('Generate Token')
+                ->modalContent(function (Action $action) {
                     $token = auth()->user()->createToken('auto_'.now()->timestamp);
 
-                    dd($token);
-                }),
+                    return view('filament.modals.generated-token', [
+                        'token' => $token->plainTextToken,
+                    ]);
+                })
+                ->modalSubmitAction(false)
+                ->modalCancelAction(false),
         ];
     }
 }
