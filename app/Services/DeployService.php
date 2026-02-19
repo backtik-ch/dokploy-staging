@@ -253,7 +253,7 @@ class DeployService
 
     private function loadServices(Project $project, string $composeId)
     {
-        $data = ["0"=>["json" => ["composeId" => $composeId,"type"=> "fetch"]]];
-        $this->get($project, '/compose.loadServices?batch=1&input='.urlencode(json_encode($data)));
+        $data = '{"0":{"json":{"composeId":"'.$composeId.'","type":"fetch"}}}';
+        $this->get($project, '/compose.loadServices?batch=1&input='.urlencode($data));
     }
 }
