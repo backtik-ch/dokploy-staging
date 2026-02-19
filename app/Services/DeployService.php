@@ -29,7 +29,7 @@ class DeployService
             // $this->info("Creating staging for PR #{$prNumber}");
 
             $envId = $this->createEnvironment($project, $stagingName);
-            $composeId = $this->createCompose($project, $envId);
+            $composeId = $this->createCompose($project, $envId, $prNumber);
             $this->updateCompose($project, $composeId, $branch);
             $env = $this->injectEnvVars($project, $composeId, $prNumber);
             $this->deployCompose($project, $composeId);
@@ -83,7 +83,7 @@ class DeployService
         return $envId;
     }
 
-    protected function createCompose(Project $project, string $envId): string
+    protected function createCompose(Project $project, string $envId, $prNumber): string
     {
         $response = $this->post($project, 'compose.create', [
             '0' => [
@@ -92,7 +92,7 @@ class DeployService
                     'description' => '',
                     'environmentId' => $envId,
                     'composeType' => 'docker-compose',
-                    'appName' => $project->app_name,
+                    'appName' => $project->app_name . '-pr-'.$prNumber,
                     'serverId' => $project->server_id,
                 ],
             ],
