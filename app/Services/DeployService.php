@@ -93,7 +93,7 @@ class DeployService
                     'environmentId' => $envId,
                     'composeType' => 'docker-compose',
                     'appName' => $project->app_name,
-                    'serverId' => null,
+                    'serverId' => $project->server_id,
                 ],
             ],
         ]);
@@ -115,6 +115,7 @@ class DeployService
                     'owner' => $project->github_owner,
                     'composePath' => $project->compose_name_file,
                     'githubId' => $project->github_id,
+                    'serverId' => $project->server_id,
                     'sourceType' => 'github',
                     'composeStatus' => 'idle',
                     'watchPaths' => [],
