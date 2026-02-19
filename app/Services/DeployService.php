@@ -32,7 +32,7 @@ class DeployService
             $composeId = $this->createCompose($project, $envId, $prNumber);
             $this->updateCompose($project, $composeId, $branch);
             $env = $this->injectEnvVars($project, $composeId, $prNumber);
-            $this->deployCompose($project, $composeId);
+            $this->loadServices($project, $composeId);
             $this->createDomain($project, $composeId, $stagingName);
             $this->deployCompose($project, $composeId);
 
@@ -249,5 +249,11 @@ class DeployService
         return collect($res->json('environments') ?? [])
             ->where('name', $stagingName)
             ->first() ?? [];
+    }
+
+    private function loadServices(Project $project, string $composeId)
+    {
+        $data = ["0"=>["json" => ["composeId" => $composeId,"type"=> "fetch"]]];
+        $this->get($project, '/compose.loadServices?batch=1&input='.urlencode(json_encode($data)));
     }
 }
