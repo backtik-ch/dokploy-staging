@@ -11,7 +11,7 @@ class DeployService
 {
     public function deploy(Project $project, string $action, int $prNumber, string $branch): ?Staging
     {
-        $stagingName = "staging-mr-{$prNumber}";
+        $stagingName = "staging-pr-{$prNumber}";
 
         $staging = Staging::where([
             'project_id' => $project->id,
