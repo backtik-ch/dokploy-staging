@@ -121,6 +121,7 @@ class DeployService
                     'watchPaths' => [],
                     'enableSubmodules' => false,
                     'triggerType' => 'push',
+                    'autoDeploy' => false
                 ],
             ],
         ]);
