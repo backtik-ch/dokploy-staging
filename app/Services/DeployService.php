@@ -31,7 +31,7 @@ class DeployService
             $envId = $this->createEnvironment($project, $stagingName);
             $composeId = $this->createCompose($project, $envId, $prNumber);
             $this->updateCompose($project, $composeId, $branch);
-            $env = $this->injectEnvVars($project, $composeId, $prNumber);
+            $env = $this->injectEnvVars($project, $composeId, $prNumber, $branch);
             $this->loadServices($project, $composeId);
             $this->createDomain($project, $composeId, $stagingName);
             $this->deployCompose($project, $composeId);
@@ -126,11 +126,12 @@ class DeployService
         ]);
     }
 
-    protected function injectEnvVars(Project $project, string $composeId, int $prNumber): string
+    protected function injectEnvVars(Project $project, string $composeId, int $prNumber, $branch): string
     {
         $env = $project->environment_staging;
 
         $env = str($env)->replace('${PR_NUMBER}', $prNumber);
+        $env = str($env)->replace('${BRANCH}', $branch);
 
         $this->post($project, 'compose.update', [
             '0' => [
