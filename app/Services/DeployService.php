@@ -109,9 +109,9 @@ class DeployService
         $input = '{"0":{"json":{"composeId":"'.$composeId.'"}}}';
         $res = $this->get($project, '/compose.getDefaultCommand?batch=1&input='.urlencode($input));
 
-        dd($res->json());
+        dd($res->json('0.result.data.json'));
 
-        $command = $res->json('result.data.json') . "--pull always";
+        $command = $res->json('0.result.data.json') . "--pull always";
 
         $this->post($project, 'compose.update', [
             '0' => [
