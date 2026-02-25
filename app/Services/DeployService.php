@@ -126,7 +126,7 @@ class DeployService
         ]);
     }
 
-    protected function injectEnvVars(Project $project, string $composeId, int $prNumber, $branch): string
+    protected function injectEnvVars(Project $project, string $composeId, int $prNumber, string $branch): string
     {
         $env = $project->environment_staging;
 
