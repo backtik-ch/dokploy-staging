@@ -106,6 +106,11 @@ class DeployService
 
     protected function updateCompose(Project $project, string $composeId, string $branch): void
     {
+        $input = '{"0":{"json":{"composeId":"'.$composeId.'"}}}';
+        $res = $this->get($project, '/compose.getDefaultCommand?batch=1&input='.urlencode($input));
+
+        $command = $res->json('result.data.json') . "--pull always";
+
         $this->post($project, 'compose.update', [
             '0' => [
                 'json' => [
@@ -121,6 +126,7 @@ class DeployService
                     'watchPaths' => [],
                     'enableSubmodules' => false,
                     'triggerType' => 'push',
+                    'command' => $command,
                 ],
             ],
         ]);
