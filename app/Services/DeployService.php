@@ -106,12 +106,6 @@ class DeployService
 
     protected function updateCompose(Project $project, string $composeId, string $branch): void
     {
-        $input = '{"0":{"json":{"composeId":"'.$composeId.'"}}}';
-        $res = $this->get($project, '/compose.getDefaultCommand?batch=1&input='.urlencode($input));
-
-        $command = str($res->json('0.result.data.json'))->replaceFirst('docker ', '')->value();
-        $command .= " --pull always";
-
         $this->post($project, 'compose.update', [
             '0' => [
                 'json' => [
@@ -127,10 +121,25 @@ class DeployService
                     'watchPaths' => [],
                     'enableSubmodules' => false,
                     'triggerType' => 'push',
+                ],
+            ],
+        ]);
+
+        $input = '{"0":{"json":{"composeId":"'.$composeId.'"}}}';
+        $res = $this->get($project, '/compose.getDefaultCommand?batch=1&input='.urlencode($input));
+
+        $command = str($res->json('0.result.data.json'))->replaceFirst('docker ', '')->value();
+        $command .= " --pull always";
+
+        $this->post($project, 'compose.update', [
+            '0' => [
+                'json' => [
+                    'composeId' => $composeId,
                     'command' => $command,
                 ],
             ],
         ]);
+
     }
 
     protected function injectEnvVars(Project $project, string $composeId, int $prNumber, string $branch): string
