@@ -11,6 +11,9 @@ services:
     env_file:
       - .env
     restart: unless-stopped
+    labels:
+        - traefik.http.middlewares.staging-ipwhitelist.ipwhitelist.sourcerange=83.228.220.86
+        - traefik.http.routers.dokploy-staging-hpkpdw-1-websecure.middlewares=staging-ipwhitelist@docker
 
   db:
     image: mariadb:11
