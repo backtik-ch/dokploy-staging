@@ -23,6 +23,7 @@ class ProjectForm
 
                 TextInput::make('dokploy_project_id')
                     ->required(),
+                TextInput::make('server_id'),
                 TextInput::make('github_id')
                     ->required(),
                 TextInput::make('github_owner')

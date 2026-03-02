@@ -17,6 +17,7 @@ class ProjectsTable
                 TextColumn::make('dokploy.base_url'),
                 TextColumn::make('app_name'),
                 TextColumn::make('dokploy_project_id'),
+                TextColumn::make('server_id'),
                 TextColumn::make('github_id'),
                 TextColumn::make('github_owner'),
                 TextColumn::make('github_repository'),

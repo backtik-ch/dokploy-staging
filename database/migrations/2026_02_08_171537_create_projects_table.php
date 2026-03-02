@@ -20,6 +20,7 @@ return new class extends Migration
 
             $table->string('app_name');
             $table->string('dokploy_project_id');
+            $table->string('server_id')->nullable();
             $table->string('github_id');
             $table->string('github_owner');
             $table->string('github_repository');

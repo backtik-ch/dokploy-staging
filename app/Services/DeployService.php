@@ -11,7 +11,7 @@ class DeployService
 {
     public function deploy(Project $project, string $action, int $prNumber, string $branch): ?Staging
     {
-        $stagingName = "staging-mr-{$prNumber}";
+        $stagingName = "staging-pr-{$prNumber}";
 
         $staging = Staging::where([
             'project_id' => $project->id,
@@ -29,10 +29,10 @@ class DeployService
             // $this->info("Creating staging for PR #{$prNumber}");
 
             $envId = $this->createEnvironment($project, $stagingName);
-            $composeId = $this->createCompose($project, $envId);
+            $composeId = $this->createCompose($project, $envId, $prNumber);
             $this->updateCompose($project, $composeId, $branch);
-            $env = $this->injectEnvVars($project, $composeId, $prNumber);
-            $this->deployCompose($project, $composeId);
+            $env = $this->injectEnvVars($project, $composeId, $prNumber, $branch);
+            $this->loadServices($project, $composeId);
             $this->createDomain($project, $composeId, $stagingName);
             $this->deployCompose($project, $composeId);
 
@@ -83,7 +83,7 @@ class DeployService
         return $envId;
     }
 
-    protected function createCompose(Project $project, string $envId): string
+    protected function createCompose(Project $project, string $envId, $prNumber): string
     {
         $response = $this->post($project, 'compose.create', [
             '0' => [
@@ -92,8 +92,8 @@ class DeployService
                     'description' => '',
                     'environmentId' => $envId,
                     'composeType' => 'docker-compose',
-                    'appName' => $project->app_name,
-                    'serverId' => null,
+                    'appName' => $project->app_name . '-pr-'.$prNumber,
+                    'serverId' => $project->server_id,
                 ],
             ],
         ]);
@@ -115,21 +115,40 @@ class DeployService
                     'owner' => $project->github_owner,
                     'composePath' => $project->compose_name_file,
                     'githubId' => $project->github_id,
+                    'serverId' => $project->server_id,
                     'sourceType' => 'github',
                     'composeStatus' => 'idle',
                     'watchPaths' => [],
                     'enableSubmodules' => false,
                     'triggerType' => 'push',
+                    'autoDeploy' => false
                 ],
             ],
         ]);
+
+        $input = '{"0":{"json":{"composeId":"'.$composeId.'"}}}';
+        $res = $this->get($project, '/compose.getDefaultCommand?batch=1&input='.urlencode($input));
+
+        $command = str($res->json('0.result.data.json'))->replaceFirst('docker ', '')->value();
+        $command .= " --pull always";
+
+        $this->post($project, 'compose.update', [
+            '0' => [
+                'json' => [
+                    'composeId' => $composeId,
+                    'command' => $command,
+                ],
+            ],
+        ]);
+
     }
 
-    protected function injectEnvVars(Project $project, string $composeId, int $prNumber): string
+    protected function injectEnvVars(Project $project, string $composeId, int $prNumber, string $branch): string
     {
         $env = $project->environment_staging;
 
-        $env = str($env)->replace('${PR_NUMBER}', $prNumber);
+        $env = str($env)->replace('{PR_NUMBER}', $prNumber);
+        $env = str($env)->replace('{BRANCH}', $branch);
 
         $this->post($project, 'compose.update', [
             '0' => [
@@ -248,5 +267,11 @@ class DeployService
         return collect($res->json('environments') ?? [])
             ->where('name', $stagingName)
             ->first() ?? [];
+    }
+
+    private function loadServices(Project $project, string $composeId)
+    {
+        $data = '{"0":{"json":{"composeId":"'.$composeId.'","type":"fetch"}}}';
+        $this->get($project, '/compose.loadServices?batch=1&input='.urlencode($data));
     }
 }
