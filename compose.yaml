@@ -11,8 +11,6 @@ services:
     env_file:
       - .env
     restart: unless-stopped
-    labels:
-      - traefik.http.routers.dokploy-staging-hpkpdw-1-websecure.rule=Host(`staging.backtik.ch`) && (ClientIP(`83.228.220.86`,`83.228.223.140`, `81.63.134.86`) || Headers(`X-Github-Key`,`gzbJjzCUvQNFtkW45iGvU4n8ysYwWP`))
 
   db:
     image: mariadb:11
