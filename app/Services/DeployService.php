@@ -65,7 +65,7 @@ class DeployService
                 'json' => [
                     'projectId' => $project->dokploy_project_id,
                     'name' => $stagingName,
-                    'description' => null,
+                    'description' => '',
                 ],
             ],
         ];
