@@ -11,6 +11,11 @@ class DeployService
 {
     public function deploy(Project $project, string $action, int $prNumber, string $branch): ?Staging
     {
+        $branch = str($branch)
+            ->replace("/", "-")
+            ->replace(" ", "-")
+            ->value();
+
         $stagingName = "staging-pr-{$prNumber}";
 
         $staging = Staging::where([
