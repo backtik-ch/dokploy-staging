@@ -14,6 +14,7 @@ class DeployService
         $branch = str($branch)
             ->replace("/", "-")
             ->replace(" ", "-")
+            ->lower()
             ->value();
 
         $stagingName = "staging-pr-{$prNumber}";
