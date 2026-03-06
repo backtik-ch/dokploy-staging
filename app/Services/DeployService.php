@@ -11,12 +11,6 @@ class DeployService
 {
     public function deploy(Project $project, string $action, int $prNumber, string $branch): ?Staging
     {
-        $branch = str($branch)
-            ->replace("/", "-")
-            ->replace(" ", "-")
-            ->lower()
-            ->value();
-
         $stagingName = "staging-pr-{$prNumber}";
 
         $staging = Staging::where([
@@ -154,7 +148,13 @@ class DeployService
         $env = $project->environment_staging;
 
         $env = str($env)->replace('{PR_NUMBER}', $prNumber);
-        $env = str($env)->replace('{BRANCH}', $branch);
+        $snakeBranch = str($branch)
+            ->replace("/", "-")
+            ->replace(" ", "-")
+            ->lower()
+            ->value();
+
+        $env = str($env)->replace('{BRANCH}', $snakeBranch);
 
         $this->post($project, 'compose.update', [
             '0' => [
