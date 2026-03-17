@@ -11,7 +11,9 @@ class DeployService
 {
     public function deploy(Project $project, string $action, int $prNumber, string $branch): ?Staging
     {
-        $stagingName = "staging-pr-{$prNumber}";
+        $snakeBranch = $this->snake($branch);
+
+        $stagingName = "staging-pr-{$prNumber}-$snakeBranch";
 
         $staging = Staging::where([
             'project_id' => $project->id,
@@ -65,7 +67,7 @@ class DeployService
                 'json' => [
                     'projectId' => $project->dokploy_project_id,
                     'name' => $stagingName,
-                    'description' => null,
+                    'description' => '',
                 ],
             ],
         ];
@@ -148,7 +150,7 @@ class DeployService
         $env = $project->environment_staging;
 
         $env = str($env)->replace('{PR_NUMBER}', $prNumber);
-        $env = str($env)->replace('{BRANCH}', $branch);
+        $env = str($env)->replace('{BRANCH}', $this->snake($branch));
 
         $this->post($project, 'compose.update', [
             '0' => [
@@ -273,5 +275,14 @@ class DeployService
     {
         $data = '{"0":{"json":{"composeId":"'.$composeId.'","type":"fetch"}}}';
         $this->get($project, '/compose.loadServices?batch=1&input='.urlencode($data));
+    }
+
+    private function snake(string $branch): string
+    {
+        return str($branch)
+            ->replace("/", "-")
+            ->replace(" ", "-")
+            ->lower()
+            ->value();
     }
 }
