@@ -132,7 +132,7 @@ class DeployService
         $res = $this->get($project, '/compose.getDefaultCommand?batch=1&input='.urlencode($input));
 
         $command = str($res->json('0.result.data.json'))->replaceFirst('docker ', '')->value();
-        $command .= " --pull always";
+        $command .= " --pull always --force-recreate";
 
         $this->post($project, 'compose.update', [
             '0' => [
