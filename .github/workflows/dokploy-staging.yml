@@ -9,6 +9,12 @@ on:
       dokploy_api_url:
         required: true
         type: string
+      frontend_branch:
+        required: false
+        type: string
+      backend_branch:
+        required: false
+        type: string
     secrets:
       dokploy_token:
         required: true
@@ -33,6 +39,8 @@ jobs:
               \"project_id\": ${{ inputs.project_id }},
               \"pr_number\": \"${PR_NUMBER}\",
               \"branch\": \"${BRANCH_NAME}\"
+              \"frontend_branch\": \"${{ inputs.frontend_branch }}\",
+              \"backend_branch\": \"${{ inputs.backend_branch }}\"
             }"
 
       - name: Remove staging

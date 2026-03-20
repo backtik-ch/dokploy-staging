@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Http;
 
 class DeployService
 {
-    public function deploy(Project $project, string $action, int $prNumber, string $branch): ?Staging
+    public function deploy(Project $project, string $action, int $prNumber, string $branch, ?string $frontendBranch = "", ?string $backendBranch = ""): ?Staging
     {
         $snakeBranch = $this->snake($branch);
 
@@ -33,7 +33,7 @@ class DeployService
             $envId = $this->createEnvironment($project, $stagingName);
             $composeId = $this->createCompose($project, $envId, $prNumber);
             $this->updateCompose($project, $composeId, $branch);
-            $env = $this->injectEnvVars($project, $composeId, $prNumber, $branch);
+            $env = $this->injectEnvVars($project, $composeId, $prNumber, $branch, $frontendBranch, $backendBranch);
             $this->loadServices($project, $composeId);
             $this->createDomain($project, $composeId, $stagingName);
             $this->deployCompose($project, $composeId);
@@ -145,12 +145,14 @@ class DeployService
 
     }
 
-    protected function injectEnvVars(Project $project, string $composeId, int $prNumber, string $branch): string
+    protected function injectEnvVars(Project $project, string $composeId, int $prNumber, string $branch, string $frontendBranch, string $backendBranch): string
     {
         $env = $project->environment_staging;
 
         $env = str($env)->replace('{PR_NUMBER}', $prNumber);
         $env = str($env)->replace('{BRANCH}', $this->snake($branch));
+        $env = str($env)->replace('{FRONTEND_BRANCH}', $this->snake($frontendBranch));
+        $env = str($env)->replace('{BACKEND_BRANCH}', $this->snake($backendBranch));
 
         $this->post($project, 'compose.update', [
             '0' => [
