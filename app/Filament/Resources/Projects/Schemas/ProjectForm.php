@@ -35,6 +35,9 @@ class ProjectForm
                 TextInput::make('domain_name')
                     ->required(),
 
+                TextInput::make('service_name')
+                    ->default('server'),
+
                 TagsInput::make('extra_sub_domains'),
 
                 Textarea::make('environment_staging'),

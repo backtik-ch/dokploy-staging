@@ -181,7 +181,7 @@ class DeployService
             'port' => 80,
             'https' => true,
             'certificateType' => 'letsencrypt',
-            'serviceName' => 'server',
+            'serviceName' => $project->service_name ?? 'server',
             'domainType' => 'compose',
         ];
 
