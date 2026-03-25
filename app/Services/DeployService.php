@@ -15,6 +15,14 @@ class DeployService
 
         $stagingName = "staging-pr-{$prNumber}-$snakeBranch";
 
+        if($frontendBranch) {
+            $stagingName .= "-fe-".$this->snake($frontendBranch);
+        }
+
+        if ($backendBranch) {
+            $stagingName .= "-be-".$this->snake($backendBranch);
+        }
+
         $staging = Staging::where([
             'project_id' => $project->id,
             'pr_number' => $prNumber,
