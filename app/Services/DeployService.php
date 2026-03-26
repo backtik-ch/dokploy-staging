@@ -159,8 +159,11 @@ class DeployService
 
         $env = str($env)->replace('{PR_NUMBER}', $prNumber);
         $env = str($env)->replace('{BRANCH}', $this->snake($branch));
+        $env = str($env)->replace('{MULTIBRANCH_DOMAIN}', '-fe-{FRONTEND_BRANCH}-be-{BACKEND_BRANCH}');
+
         $env = str($env)->replace('{FRONTEND_BRANCH}', $this->snake($frontendBranch ?? ''));
         $env = str($env)->replace('{BACKEND_BRANCH}', $this->snake($backendBranch ?? ''));
+
 
         $this->post($project, 'compose.update', [
             '0' => [
