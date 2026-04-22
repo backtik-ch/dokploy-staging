@@ -98,7 +98,7 @@ class DeployService
         $response = $this->post($project, 'compose.create', [
             '0' => [
                 'json' => [
-                    'name' => 'app',
+                    'name' => 'staging-pr-'.$prNumber,
                     'description' => '',
                     'environmentId' => $envId,
                     'composeType' => 'docker-compose',
