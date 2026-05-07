@@ -94,7 +94,7 @@ class DeployService
         $envId = $response['0']['result']['data']['json']['environmentId'] ?? null;
 
         if (! $envId) {
-            dd('Failed to create environment: '.json_encode($response));
+            throw new \Exception('Failed to create environment: '.json_encode($response));
         }
 
         // $this->info("✅ Environment ID: $envId");
@@ -263,7 +263,7 @@ class DeployService
             ->post("/api/trpc/$endpoint?batch=1");
 
         if (! $response->successful()) {
-            dd("❌ Error calling POST {$endpoint}: ".$response->body());
+            throw new \Exception("❌ Error calling POST {$endpoint}: ".$response->body());
         }
 
         return $response->json();
@@ -278,7 +278,7 @@ class DeployService
             ->get("/api/trpc/$endpoint");
 
         if (! $response->successful()) {
-            dd("❌ Error calling GET {$endpoint}: ".$response->body());
+            throw new \Exception("❌ Error calling GET {$endpoint}: ".$response->body());
         }
 
         return $response;
