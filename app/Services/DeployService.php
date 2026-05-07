@@ -41,7 +41,9 @@ class DeployService
                 // $this->info("Creating staging for PR #{$prNumber}");
 
                 $envId = $this->createEnvironment($project, $stagingName);
+                Log::info("Environment ID: $envId");
                 $composeId = $this->createCompose($project, $envId, $prNumber);
+                Log::info("Compose ID: $composeId");
                 $this->updateCompose($project, $composeId, $branch);
                 $env = $this->injectEnvVars($project, $composeId, $prNumber, $branch, $frontendBranch, $backendBranch);
                 $this->loadServices($project, $composeId);
