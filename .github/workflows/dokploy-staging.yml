@@ -43,6 +43,7 @@ jobs:
           HTTP_CODE="$(curl -sS -X POST "${{ inputs.dokploy_api_url }}/api/deploy" \
           -H "Authorization: Bearer ${{ secrets.dokploy_token }}" \
           -H "Content-Type: application/json" \
+          -H "Accept: application/json" \
           -o "$BODY_FILE" \
           -w "%{http_code}" \
           -d @- <<EOF
@@ -75,6 +76,7 @@ jobs:
           HTTP_CODE="$(curl -sS -X DELETE "${{ inputs.dokploy_api_url }}/api/remove" \
             -H "Authorization: Bearer ${{ secrets.dokploy_token }}" \
             -H "Content-Type: application/json" \
+            -H "Accept: application/json" \
             -o "$BODY_FILE" \
             -w "%{http_code}" \
             -d "{
