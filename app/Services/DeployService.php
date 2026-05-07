@@ -6,55 +6,58 @@ use App\Models\Project;
 use App\Models\Staging;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class DeployService
 {
     public function deploy(Project $project, string $action, int $prNumber, string $branch, ?string $frontendBranch = "", ?string $backendBranch = ""): ?Staging
     {
-        $snakeBranch = $this->snake($branch);
+        try {
+            $snakeBranch = $this->snake($branch);
 
-        $stagingName = "staging-pr-{$prNumber}-$snakeBranch";
+            $stagingName = "staging-pr-{$prNumber}-$snakeBranch";
 
-        if($frontendBranch) {
-            $stagingName .= "-fe-".$this->snake($frontendBranch);
-        }
-
-        if ($backendBranch) {
-            $stagingName .= "-be-".$this->snake($backendBranch);
-        }
-
-        $staging = Staging::where([
-            'project_id' => $project->id,
-            'pr_number' => $prNumber,
-        ])->first();
-
-        if ($action === 'create') {
-
-            if ($staging) {
-                $this->deployCompose($project, $staging->compose_id);
-
-                return $staging;
+            if ($frontendBranch) {
+                $stagingName .= "-fe-".$this->snake($frontendBranch);
             }
 
-            // $this->info("Creating staging for PR #{$prNumber}");
+            if ($backendBranch) {
+                $stagingName .= "-be-".$this->snake($backendBranch);
+            }
 
-            $envId = $this->createEnvironment($project, $stagingName);
-            $composeId = $this->createCompose($project, $envId, $prNumber);
-            $this->updateCompose($project, $composeId, $branch);
-            $env = $this->injectEnvVars($project, $composeId, $prNumber, $branch, $frontendBranch, $backendBranch);
-            $this->loadServices($project, $composeId);
-            $this->createDomain($project, $composeId, $stagingName);
-            $this->deployCompose($project, $composeId);
-
-            return Staging::create([
+            $staging = Staging::where([
                 'project_id' => $project->id,
                 'pr_number' => $prNumber,
-                'branch' => $branch,
-                'compose_id' => $composeId,
-                'environment_id' => $envId,
-                'environment' => $env,
-            ]);
-        }
+            ])->first();
+
+            if ($action === 'create') {
+
+                if ($staging) {
+                    $this->deployCompose($project, $staging->compose_id);
+
+                    return $staging;
+                }
+
+                // $this->info("Creating staging for PR #{$prNumber}");
+
+                $envId = $this->createEnvironment($project, $stagingName);
+                $composeId = $this->createCompose($project, $envId, $prNumber);
+                $this->updateCompose($project, $composeId, $branch);
+                $env = $this->injectEnvVars($project, $composeId, $prNumber, $branch, $frontendBranch, $backendBranch);
+                $this->loadServices($project, $composeId);
+                $this->createDomain($project, $composeId, $stagingName);
+                $this->deployCompose($project, $composeId);
+
+                return Staging::create([
+                    'project_id' => $project->id,
+                    'pr_number' => $prNumber,
+                    'branch' => $branch,
+                    'compose_id' => $composeId,
+                    'environment_id' => $envId,
+                    'environment' => $env,
+                ]);
+            }
+
 
         if ($action === 'delete') {
             $this->deleteCompose($project, $staging->compose_id);
@@ -65,7 +68,13 @@ class DeployService
             return null;
         }
 
+        } catch (\Throwable $e) {
+            Log::error($e->getMessage());
+
+            throw $e;
+        }
         return null;
+
     }
 
     protected function createEnvironment(Project $project, string $stagingName): string
