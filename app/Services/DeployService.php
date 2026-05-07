@@ -59,14 +59,14 @@ class DeployService
             }
 
 
-        if ($action === 'delete') {
-            $this->deleteCompose($project, $staging->compose_id);
-            $this->deleteEnvironment($project, $staging->environment_id);
+            if ($action === 'delete') {
+                $this->deleteCompose($project, $staging->compose_id);
+                $this->deleteEnvironment($project, $staging->environment_id);
 
-            $staging->delete();
+                $staging->delete();
 
-            return null;
-        }
+                return null;
+            }
 
         } catch (\Throwable $e) {
             Log::error($e->getMessage());
