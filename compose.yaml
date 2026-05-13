@@ -1,8 +1,6 @@
 services:
   server:
-    image: dokploy-staging-app
-    build:
-      context: .
+    image: ghcr.io/backtik-ch/dokploy-staging:main
     depends_on:
       db:
         condition: service_healthy
