@@ -10,19 +10,19 @@ use Illuminate\Support\Facades\Log;
 
 class DeployService
 {
-    public function deploy(Project $project, string $action, int $prNumber, string $branch, ?string $frontendBranch = "", ?string $backendBranch = ""): ?Staging
+    public function deploy(Project $project, string $action, int $prNumber, string $branch, array $selectedBranches = []): ?Staging
     {
         try {
             $snakeBranch = $this->snake($branch);
 
             $stagingName = "staging-pr-{$prNumber}-$snakeBranch";
 
-            if ($frontendBranch) {
-                $stagingName .= "-fe-".$this->snake($frontendBranch);
-            }
+            foreach ($selectedBranches as $repoBranch) {
+                if (! filled($repoBranch)) {
+                    continue;
+                }
 
-            if ($backendBranch) {
-                $stagingName .= "-be-".$this->snake($backendBranch);
+                $stagingName .= '-'.$this->snake((string) $repoBranch);
             }
 
             $staging = Staging::where([
@@ -33,19 +33,25 @@ class DeployService
             if ($action === 'create') {
 
                 if ($staging) {
+                    $this->updateCompose($project, $staging->compose_id, $branch);
+                    $env = $this->injectEnvVars($project, $staging->compose_id, $prNumber, $branch, $selectedBranches ?: ($staging->selected_branches ?? []));
                     $this->deployCompose($project, $staging->compose_id);
 
-                    return $staging;
-                }
+                    $staging->update([
+                        'branch' => $branch,
+                        'environment' => $env,
+                        'selected_branches' => $selectedBranches ?: ($staging->selected_branches ?? []),
+                    ]);
 
-                // $this->info("Creating staging for PR #{$prNumber}");
+                    return $staging->fresh();
+                }
 
                 $envId = $this->createEnvironment($project, $stagingName);
                 Log::info("Environment ID: $envId");
                 $composeId = $this->createCompose($project, $envId, $prNumber);
                 Log::info("Compose ID: $composeId");
                 $this->updateCompose($project, $composeId, $branch);
-                $env = $this->injectEnvVars($project, $composeId, $prNumber, $branch, $frontendBranch, $backendBranch);
+                $env = $this->injectEnvVars($project, $composeId, $prNumber, $branch, $selectedBranches);
                 $this->loadServices($project, $composeId);
                 $this->createDomain($project, $composeId, $stagingName);
                 $this->deployCompose($project, $composeId);
@@ -54,6 +60,7 @@ class DeployService
                     'project_id' => $project->id,
                     'pr_number' => $prNumber,
                     'branch' => $branch,
+                    'selected_branches' => $selectedBranches,
                     'compose_id' => $composeId,
                     'environment_id' => $envId,
                     'environment' => $env,
@@ -62,6 +69,10 @@ class DeployService
 
 
             if ($action === 'delete') {
+                if (! $staging) {
+                    return null;
+                }
+
                 $this->deleteCompose($project, $staging->compose_id);
                 $this->deleteEnvironment($project, $staging->environment_id);
 
@@ -99,12 +110,10 @@ class DeployService
             throw new \Exception('Failed to create environment: '.json_encode($response));
         }
 
-        // $this->info("✅ Environment ID: $envId");
-
         return $envId;
     }
 
-    protected function createCompose(Project $project, string $envId, $prNumber): string
+    protected function createCompose(Project $project, string $envId, $prNumber): ?string
     {
         $response = $this->post($project, 'compose.create', [
             '0' => [
@@ -113,16 +122,13 @@ class DeployService
                     'description' => '',
                     'environmentId' => $envId,
                     'composeType' => 'docker-compose',
-                    'appName' => $project->app_name . '-pr-'.$prNumber,
+                    'appName' => $project->app_name.'-pr-'.$prNumber,
                     'serverId' => $project->server_id,
                 ],
             ],
         ]);
 
-        $composeId = $response['0']['result']['data']['json']['composeId'] ?? null;
-        // $this->info("✅ Compose ID: $composeId");
-
-        return $composeId;
+        return $response['0']['result']['data']['json']['composeId'] ?? null;
     }
 
     protected function updateCompose(Project $project, string $composeId, string $branch): void
@@ -142,7 +148,7 @@ class DeployService
                     'watchPaths' => [],
                     'enableSubmodules' => false,
                     'triggerType' => 'push',
-                    'autoDeploy' => false
+                    'autoDeploy' => false,
                 ],
             ],
         ]);
@@ -151,7 +157,7 @@ class DeployService
         $res = $this->get($project, '/compose.getDefaultCommand?batch=1&input='.urlencode($input));
 
         $command = str($res->json('0.result.data.json'))->replaceFirst('docker ', '')->value();
-        $command .= " --pull always --force-recreate";
+        $command .= ' --pull always --force-recreate';
 
         $this->post($project, 'compose.update', [
             '0' => [
@@ -164,17 +170,16 @@ class DeployService
 
     }
 
-    protected function injectEnvVars(Project $project, string $composeId, int $prNumber, string $branch, ?string $frontendBranch = "", ?string $backendBranch = ""): string
+    protected function injectEnvVars(Project $project, string $composeId, int $prNumber, string $branch, array $selectedBranches = []): string
     {
         $env = $project->environment_staging;
 
         $env = str($env)->replace('{PR_NUMBER}', $prNumber);
         $env = str($env)->replace('{BRANCH}', $this->snake($branch));
-        $env = str($env)->replace('{MULTIBRANCH_DOMAIN}', '-fe-{FRONTEND_BRANCH}-be-{BACKEND_BRANCH}');
 
-        $env = str($env)->replace('{FRONTEND_BRANCH}', $this->snake($frontendBranch ?? ''));
-        $env = str($env)->replace('{BACKEND_BRANCH}', $this->snake($backendBranch ?? ''));
-
+        foreach ($selectedBranches as $placeholder => $repoBranch) {
+            $env = $env->replace('{'.strtoupper((string) $placeholder).'}', $this->snake((string) $repoBranch));
+        }
 
         $this->post($project, 'compose.update', [
             '0' => [
@@ -264,8 +269,8 @@ class DeployService
             ->withBody(json_encode((object) $payload))
             ->post("/api/trpc/$endpoint?batch=1");
 
-        if (! $response->successful()) {
-            throw new \Exception("❌ Error calling POST {$endpoint}: ".$response->body());
+        if ($response->failed()) {
+            throw new \Exception('Request failed: '.$response->body());
         }
 
         return $response->json();
@@ -279,33 +284,25 @@ class DeployService
         ])->baseUrl($project->dokploy->base_url)
             ->get("/api/trpc/$endpoint");
 
-        if (! $response->successful()) {
-            throw new \Exception("❌ Error calling GET {$endpoint}: ".$response->body());
+        if ($response->failed()) {
+            throw new \Exception('Request failed: '.$response->body());
         }
 
         return $response;
     }
 
-    private function getEnvironment(Project $project, string $stagingName): array
+    protected function loadServices(Project $project, string $composeId): void
     {
-        $res = $this->get($project, '/project.one?projectId='.$project->dokploy_project_id);
-
-        return collect($res->json('environments') ?? [])
-            ->where('name', $stagingName)
-            ->first() ?? [];
-    }
-
-    private function loadServices(Project $project, string $composeId)
-    {
-        $data = '{"0":{"json":{"composeId":"'.$composeId.'","type":"fetch"}}}';
-        $this->get($project, '/compose.loadServices?batch=1&input='.urlencode($data));
+        $this->post($project, 'compose.loadServices', [
+            '0' => ['json' => ['composeId' => $composeId]],
+        ]);
     }
 
     private function snake(string $branch): string
     {
         return str($branch)
-            ->replace("/", "-")
-            ->replace(" ", "-")
+            ->replace(['/', '.', '_'], '-')
+            ->trim('-')
             ->lower()
             ->value();
     }

@@ -21,7 +21,9 @@ class Project extends Model
     {
         return [
             'environment_staging' => 'encrypted',
+            'github_token' => 'encrypted',
             'extra_sub_domains' => 'array',
+            'linked_repositories' => 'array',
         ];
     }
 

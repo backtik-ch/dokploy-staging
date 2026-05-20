@@ -20,6 +20,10 @@ class StagingsTable
                 TextColumn::make('id'),
                 TextColumn::make('pr_number'),
                 TextColumn::make('branch'),
+                TextColumn::make('selected_branches')
+                    ->formatStateUsing(fn (?array $state) => collect($state ?? [])
+                        ->map(fn ($branch, $placeholder) => $placeholder.': '.$branch)
+                        ->implode(' | ')),
             ])
             ->filters([
                 //
@@ -28,13 +32,13 @@ class StagingsTable
                 Action::make('deploy')
                     ->color('success')
                     ->action(fn (Staging $record) => app(DeployService::class)
-                        ->deploy($record->project, 'create', $record->pr_number, $record->branch)),
+                        ->deploy($record->project, 'create', (int) $record->pr_number, $record->branch, $record->selected_branches ?? [])),
 
                 Action::make('delete')
                     ->requiresConfirmation()
                     ->color('danger')
                     ->action(fn (Staging $record) => app(DeployService::class)
-                        ->deploy($record->project, 'delete', $record->pr_number, $record->branch)),
+                        ->deploy($record->project, 'delete', (int) $record->pr_number, $record->branch)),
 
                 EditAction::make(),
             ])
