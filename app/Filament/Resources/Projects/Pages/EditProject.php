@@ -7,10 +7,10 @@ use App\Services\DeployService;
 use App\Services\GithubService;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
-use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Pages\EditRecord;
+use Filament\Schemas\Components\Section;
 
 class EditProject extends EditRecord
 {
