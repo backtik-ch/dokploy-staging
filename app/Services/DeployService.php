@@ -13,18 +13,9 @@ class DeployService
     public function deploy(Project $project, string $action, string $stagingReference, string $branch, array $selectedBranches = []): ?Staging
     {
         try {
-            $snakeBranch = $this->snake($branch);
             $snakeReference = $this->snake($stagingReference);
 
-            $stagingName = "staging-{$snakeReference}-$snakeBranch";
-
-            foreach ($selectedBranches as $repoBranch) {
-                if (! filled($repoBranch)) {
-                    continue;
-                }
-
-                $stagingName .= '-'.$this->snake((string) $repoBranch);
-            }
+            $stagingName = "staging-{$snakeReference}";
 
             $staging = Staging::where([
                 'project_id' => $project->id,
