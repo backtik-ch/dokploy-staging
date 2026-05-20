@@ -52,7 +52,19 @@ class DeployService
                 Log::info("Compose ID: $composeId");
                 $this->updateCompose($project, $composeId, $branch);
                 $env = $this->injectEnvVars($project, $composeId, $prNumber, $branch, $selectedBranches);
-                $this->loadServices($project, $composeId);
+                try {
+                    $this->loadServices($project, $composeId);
+                } catch (\Throwable $e) {
+                    Log::warning('compose.loadServices failed, continuing deploy', [
+                        'compose_id' => $composeId,
+                        'message' => $e->getMessage(),
+                    ]);
+
+                    dd([
+                        'compose_id' => $composeId,
+                        'message' => $e->getMessage(),
+                    ]);
+                }
                 $this->createDomain($project, $composeId, $stagingName);
                 $this->deployCompose($project, $composeId);
 
