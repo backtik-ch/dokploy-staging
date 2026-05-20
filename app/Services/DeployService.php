@@ -305,9 +305,16 @@ class DeployService
 
     protected function loadServices(Project $project, string $composeId): void
     {
-        $this->post($project, 'compose.loadServices', [
-            '0' => ['json' => ['composeId' => $composeId]],
-        ]);
+        $input = json_encode([
+            '0' => [
+                'json' => [
+                    'composeId' => $composeId,
+                    'type' => 'fetch',
+                ],
+            ],
+        ], JSON_THROW_ON_ERROR);
+
+        $this->get($project, '/compose.loadServices?batch=1&input='.urlencode($input));
     }
 
     private function snake(string $branch): string
