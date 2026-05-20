@@ -10,12 +10,13 @@ use Illuminate\Support\Facades\Log;
 
 class DeployService
 {
-    public function deploy(Project $project, string $action, int $prNumber, string $branch, array $selectedBranches = []): ?Staging
+    public function deploy(Project $project, string $action, string $stagingReference, string $branch, array $selectedBranches = []): ?Staging
     {
         try {
             $snakeBranch = $this->snake($branch);
+            $snakeReference = $this->snake($stagingReference);
 
-            $stagingName = "staging-pr-{$prNumber}-$snakeBranch";
+            $stagingName = "staging-{$snakeReference}-$snakeBranch";
 
             foreach ($selectedBranches as $repoBranch) {
                 if (! filled($repoBranch)) {
@@ -27,14 +28,14 @@ class DeployService
 
             $staging = Staging::where([
                 'project_id' => $project->id,
-                'pr_number' => $prNumber,
+                'pr_number' => $stagingReference,
             ])->first();
 
             if ($action === 'create') {
 
                 if ($staging) {
                     $this->updateCompose($project, $staging->compose_id, $branch);
-                    $env = $this->injectEnvVars($project, $staging->compose_id, $prNumber, $branch, $selectedBranches ?: ($staging->selected_branches ?? []));
+                    $env = $this->injectEnvVars($project, $staging->compose_id, $stagingReference, $branch, $selectedBranches ?: ($staging->selected_branches ?? []));
                     $this->deployCompose($project, $staging->compose_id);
 
                     $staging->update([
@@ -48,10 +49,10 @@ class DeployService
 
                 $envId = $this->createEnvironment($project, $stagingName);
                 Log::info("Environment ID: $envId");
-                $composeId = $this->createCompose($project, $envId, $prNumber);
+                $composeId = $this->createCompose($project, $envId, $stagingReference);
                 Log::info("Compose ID: $composeId");
                 $this->updateCompose($project, $composeId, $branch);
-                $env = $this->injectEnvVars($project, $composeId, $prNumber, $branch, $selectedBranches);
+                $env = $this->injectEnvVars($project, $composeId, $stagingReference, $branch, $selectedBranches);
                 try {
                     $this->loadServices($project, $composeId);
                 } catch (\Throwable $e) {
@@ -60,17 +61,13 @@ class DeployService
                         'message' => $e->getMessage(),
                     ]);
 
-                    dd([
-                        'compose_id' => $composeId,
-                        'message' => $e->getMessage(),
-                    ]);
                 }
                 $this->createDomain($project, $composeId, $stagingName);
                 $this->deployCompose($project, $composeId);
 
                 return Staging::create([
                     'project_id' => $project->id,
-                    'pr_number' => $prNumber,
+                    'pr_number' => $stagingReference,
                     'branch' => $branch,
                     'selected_branches' => $selectedBranches,
                     'compose_id' => $composeId,
@@ -125,16 +122,18 @@ class DeployService
         return $envId;
     }
 
-    protected function createCompose(Project $project, string $envId, $prNumber): ?string
+    protected function createCompose(Project $project, string $envId, string $stagingReference): ?string
     {
+        $snakeReference = $this->snake($stagingReference);
+
         $response = $this->post($project, 'compose.create', [
             '0' => [
                 'json' => [
-                    'name' => 'staging-pr-'.$prNumber,
+                    'name' => 'staging-'.$snakeReference,
                     'description' => '',
                     'environmentId' => $envId,
                     'composeType' => 'docker-compose',
-                    'appName' => $project->app_name.'-pr-'.$prNumber,
+                    'appName' => $project->app_name.'-'.$snakeReference,
                     'serverId' => $project->server_id,
                 ],
             ],
@@ -182,12 +181,13 @@ class DeployService
 
     }
 
-    protected function injectEnvVars(Project $project, string $composeId, int $prNumber, string $branch, array $selectedBranches = []): string
+    protected function injectEnvVars(Project $project, string $composeId, string $stagingReference, string $branch, array $selectedBranches = []): string
     {
         $env = $project->environment_staging;
 
-        $env = str($env)->replace('{PR_NUMBER}', $prNumber);
-        $env = str($env)->replace('{BRANCH}', $this->snake($branch));
+        $env = str($env)->replace('{PR_NUMBER}', $stagingReference);
+        $env = $env->replace('{STAGING_REFERENCE}', $this->snake($stagingReference));
+        $env = $env->replace('{BRANCH}', $this->snake($branch));
 
         foreach ($selectedBranches as $placeholder => $repoBranch) {
             $env = $env->replace('{'.strtoupper((string) $placeholder).'}', $this->snake((string) $repoBranch));

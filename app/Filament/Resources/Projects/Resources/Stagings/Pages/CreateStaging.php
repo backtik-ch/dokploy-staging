@@ -16,7 +16,7 @@ class CreateStaging extends CreateRecord
         $staging = app(DeployService::class)->deploy(
             $this->getOwnerRecord(),
             'create',
-            (int) $data['pr_number'],
+            (string) $data['staging_reference'],
             (string) $data['branch'],
             $data['selected_branches'] ?? [],
         );

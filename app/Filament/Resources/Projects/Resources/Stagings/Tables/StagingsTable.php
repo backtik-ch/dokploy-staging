@@ -18,7 +18,8 @@ class StagingsTable
         return $table
             ->columns([
                 TextColumn::make('id'),
-                TextColumn::make('pr_number'),
+                TextColumn::make('pr_number')
+                    ->label('reference'),
                 TextColumn::make('branch'),
                 TextColumn::make('selected_branches')
                     ->formatStateUsing(fn (?array $state) => collect($state ?? [])
@@ -32,13 +33,13 @@ class StagingsTable
                 Action::make('deploy')
                     ->color('success')
                     ->action(fn (Staging $record) => app(DeployService::class)
-                        ->deploy($record->project, 'create', (int) $record->pr_number, $record->branch, $record->selected_branches ?? [])),
+                        ->deploy($record->project, 'create', (string) $record->pr_number, $record->branch, $record->selected_branches ?? [])),
 
                 Action::make('delete')
                     ->requiresConfirmation()
                     ->color('danger')
                     ->action(fn (Staging $record) => app(DeployService::class)
-                        ->deploy($record->project, 'delete', (int) $record->pr_number, $record->branch)),
+                        ->deploy($record->project, 'delete', (string) $record->pr_number, $record->branch)),
 
                 EditAction::make(),
             ])

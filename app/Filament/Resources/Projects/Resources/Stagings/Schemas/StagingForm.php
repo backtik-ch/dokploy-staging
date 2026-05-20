@@ -15,9 +15,10 @@ class StagingForm
     {
         return $schema
             ->components([
-                TextInput::make('pr_number')
+                TextInput::make('staging_reference')
+                    ->label('Référence staging')
                     ->required()
-                    ->numeric(),
+                    ->maxLength(255),
 
                 Select::make('branch')
                     ->label('Branche principale')

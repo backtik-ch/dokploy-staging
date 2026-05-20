@@ -22,9 +22,10 @@ class EditProject extends EditRecord
             Action::make('deploy')
                 ->schema(function ($record): array {
                     $components = [
-                        TextInput::make('pr_number')
+                        TextInput::make('staging_reference')
+                            ->label('Référence staging')
                             ->required()
-                            ->numeric(),
+                            ->maxLength(255),
 
                         Select::make('branch')
                             ->label('Branche principale')
@@ -68,7 +69,7 @@ class EditProject extends EditRecord
                 })
                 ->action(function ($record, $data) {
                     app(DeployService::class)
-                        ->deploy($record, 'create', (int) $data['pr_number'], (string) $data['branch'], $data['selected_branches'] ?? []);
+                        ->deploy($record, 'create', (string) $data['staging_reference'], (string) $data['branch'], $data['selected_branches'] ?? []);
                 }),
             DeleteAction::make(),
         ];
