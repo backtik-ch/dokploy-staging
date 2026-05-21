@@ -20,6 +20,9 @@ class EditProject extends EditRecord
     {
         return [
             Action::make('deploy')
+                ->beforeFormFilled(function ($record): void {
+                    app(GithubService::class)->warmProjectBranchesCache($record);
+                })
                 ->schema(function ($record): array {
                     $components = [
                         TextInput::make('staging_reference')
