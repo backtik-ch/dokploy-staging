@@ -22,9 +22,20 @@ class StagingsTable
                     ->label('reference'),
                 TextColumn::make('branch'),
                 TextColumn::make('selected_branches')
-                    ->formatStateUsing(fn (?array $state) => collect($state ?? [])
+                    ->formatStateUsing(function ($state) {
+                        if (is_string($state)) {
+                            $decoded = json_decode($state, true);
+                            $state = is_array($decoded) ? $decoded : [];
+                        }
+
+                        if (! is_array($state)) {
+                            $state = [];
+                        }
+
+                        return collect($state)
                         ->map(fn ($branch, $placeholder) => $placeholder.': '.$branch)
-                        ->implode(' | ')),
+                        ->implode(' | ');
+                    }),
             ])
             ->filters([
                 //
