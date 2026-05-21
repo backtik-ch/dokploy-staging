@@ -213,6 +213,9 @@ class DeployService
             'certificateType' => 'letsencrypt',
             'serviceName' => $project->service_name ?? 'server',
             'domainType' => 'compose',
+            'middlewares' => [
+                'internal-ipwhitelist@file',
+            ],
         ];
 
         $this->post($project, 'domain.create', [
