@@ -27,6 +27,9 @@ return new class extends Migration
             $table->string('compose_name_file');
             $table->string('domain_name');
             $table->text('extra_sub_domains');
+            $table->string('service_name')
+                ->nullable()
+                ->default('server');
 
             $table->text('environment_staging');
 

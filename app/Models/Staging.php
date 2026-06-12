@@ -20,6 +20,7 @@ class Staging extends Model
     {
         return [
             'environment' => 'encrypted',
+            'selected_branches' => 'array',
         ];
     }
 

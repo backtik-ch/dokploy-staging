@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Projects\Schemas;
 
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\Textarea;
@@ -30,10 +31,37 @@ class ProjectForm
                     ->required(),
                 TextInput::make('github_repository')
                     ->required(),
+
+                TextInput::make('github_token')
+                    ->password()
+                    ->revealable()
+                    ->helperText('Token GitHub (scope lecture des repositories/branches). Si vide, utilise SERVICES_GITHUB_TOKEN.'),
+
+                Repeater::make('linked_repositories')
+                    ->label('Repositories liés')
+                    ->schema([
+                        TextInput::make('label')
+                            ->required()
+                            ->helperText('Nom affiché dans le formulaire de staging (ex: frontend, backend, admin).'),
+                        TextInput::make('owner')
+                            ->required(),
+                        TextInput::make('repository')
+                            ->required(),
+                        TextInput::make('branch_placeholder')
+                            ->required()
+                            ->helperText('Placeholder dans environment_staging à remplacer, ex: FRONTEND_BRANCH pour {FRONTEND_BRANCH}.'),
+                    ])
+                    ->columns(2)
+                    ->default([])
+                    ->collapsible(),
+
                 TextInput::make('compose_name_file')
                     ->required(),
                 TextInput::make('domain_name')
                     ->required(),
+
+                TextInput::make('service_name')
+                    ->default('server'),
 
                 TagsInput::make('extra_sub_domains'),
 
