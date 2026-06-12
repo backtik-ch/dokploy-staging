@@ -26,6 +26,7 @@ class DeployController extends Controller
             $reference,
             $validated['branch'],
             $validated['selected_branches'] ?? [],
+            true,
         );
     }
 

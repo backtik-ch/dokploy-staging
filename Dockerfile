@@ -29,7 +29,6 @@ RUN apt-get update && apt-get install -y \
         libicu-dev \
         libzip-dev \
         nano \
-        cron \
     && rm -rf /var/lib/apt/lists/* \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) gd pdo_mysql pcntl bcmath intl zip
@@ -48,6 +47,7 @@ RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 # Copy the app files from the app directory.
 WORKDIR /var/www/html
 COPY . .
+COPY --chmod=0755 docker/entrypoint-scheduler.sh /docker/entrypoint-scheduler.sh
 
 # Install Composer (if not already in the image)
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
