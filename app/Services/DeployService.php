@@ -10,7 +10,9 @@ use Illuminate\Support\Facades\Log;
 
 class DeployService
 {
-    public function deploy(Project $project, string $action, string $stagingReference, string $branch, array $selectedBranches = []): ?Staging
+    public function __construct(private readonly GithubService $githubService) {}
+
+    public function deploy(Project $project, string $action, string $stagingReference, string $branch, array $selectedBranches = [], bool $deferUntilImagesExist = false): ?Staging
     {
         try {
             $snakeReference = $this->snake($stagingReference);
@@ -27,13 +29,18 @@ class DeployService
                 if ($staging) {
                     $this->updateCompose($project, $staging->compose_id, $branch);
                     $env = $this->injectEnvVars($project, $staging->compose_id, $stagingReference, $branch, $selectedBranches ?: ($staging->selected_branches ?? []));
-                    $this->deployCompose($project, $staging->compose_id);
 
                     $staging->update([
                         'branch' => $branch,
                         'environment' => $env,
                         'selected_branches' => $selectedBranches ?: ($staging->selected_branches ?? []),
                     ]);
+
+                    if ($deferUntilImagesExist) {
+                        return $this->queueDeploy($staging->fresh());
+                    }
+
+                    $this->deployCompose($project, $staging->compose_id);
 
                     return $staging->fresh();
                 }
@@ -54,9 +61,8 @@ class DeployService
 
                 }
                 $this->createDomain($project, $composeId, $stagingName);
-                $this->deployCompose($project, $composeId);
 
-                return Staging::create([
+                $staging = Staging::create([
                     'project_id' => $project->id,
                     'pr_number' => $stagingReference,
                     'branch' => $branch,
@@ -65,8 +71,15 @@ class DeployService
                     'environment_id' => $envId,
                     'environment' => $env,
                 ]);
-            }
 
+                if ($deferUntilImagesExist) {
+                    return $this->queueDeploy($staging);
+                }
+
+                $this->deployCompose($project, $composeId);
+
+                return $staging;
+            }
 
             if ($action === 'delete') {
                 if (! $staging) {
@@ -86,8 +99,72 @@ class DeployService
 
             throw $e;
         }
+
         return null;
 
+    }
+
+    public function queueDeploy(Staging $staging): Staging
+    {
+        $staging->update([
+            'deploy_status' => 'waiting_for_images',
+            'deploy_requested_at' => now(),
+            'deploy_checked_at' => null,
+            'deploy_started_at' => null,
+            'deploy_error' => null,
+            'missing_images' => [],
+        ]);
+
+        return $staging->fresh();
+    }
+
+    public function deployWhenImagesExist(Staging $staging): bool
+    {
+        $staging->loadMissing('project.dokploy');
+
+        if ($staging->deploy_status !== 'waiting_for_images') {
+            return false;
+        }
+
+        $missingImages = $this->githubService->missingGhcrImages(
+            $staging->project,
+            (string) $staging->branch,
+            $staging->selected_branches ?? [],
+        );
+
+        $staging->update([
+            'deploy_checked_at' => now(),
+            'missing_images' => $missingImages,
+        ]);
+
+        if ($missingImages !== []) {
+            return false;
+        }
+
+        try {
+            $staging->update([
+                'deploy_status' => 'deploying',
+                'deploy_started_at' => now(),
+                'deploy_error' => null,
+            ]);
+
+            $this->deployCompose($staging->project, $staging->compose_id);
+
+            $staging->update([
+                'deploy_status' => 'deployed',
+                'missing_images' => [],
+                'deploy_error' => null,
+            ]);
+
+            return true;
+        } catch (\Throwable $e) {
+            $staging->update([
+                'deploy_status' => 'failed',
+                'deploy_error' => $e->getMessage(),
+            ]);
+
+            throw $e;
+        }
     }
 
     protected function createEnvironment(Project $project, string $stagingName): string

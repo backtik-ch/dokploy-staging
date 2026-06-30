@@ -19,6 +19,7 @@ class CreateStaging extends CreateRecord
             (string) $data['staging_reference'],
             (string) $data['branch'],
             $data['selected_branches'] ?? [],
+            true,
         );
 
         if (! $staging) {

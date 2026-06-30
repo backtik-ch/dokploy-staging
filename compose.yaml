@@ -10,6 +10,25 @@ services:
       - .env
     restart: unless-stopped
 
+  scheduler:
+    image: ghcr.io/backtik-ch/dokploy-staging:main
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - dokploy-staging-network
+    env_file:
+      - .env
+    restart: unless-stopped
+    entrypoint: ["/docker/entrypoint-scheduler.sh"]
+    stop_grace_period: 60s
+    healthcheck:
+      test: ["CMD-SHELL", "php artisan list --no-ansi >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
   db:
     image: mariadb:11
     restart: always

@@ -41,3 +41,37 @@ Artisan::command('staging:cleanup-old', function () {
         });
 })->purpose('Delete stagings older than one month')
     ->dailyAt('02:00');
+
+Artisan::command('staging:deploy-ready', function () {
+    Staging::query()
+        ->with('project.dokploy')
+        ->where('deploy_status', 'waiting_for_images')
+        ->orderBy('deploy_requested_at')
+        ->limit(25)
+        ->get()
+        ->each(function (Staging $staging): void {
+            try {
+                $deployed = app(DeployService::class)->deployWhenImagesExist($staging);
+
+                if ($deployed) {
+                    $this->info("Deployed staging #{$staging->id} ({$staging->pr_number})");
+
+                    return;
+                }
+
+                $missing = implode(', ', $staging->fresh()->missing_images ?? []);
+                $this->line("Waiting staging #{$staging->id}: {$missing}");
+            } catch (\Throwable $e) {
+                Log::error('Failed to deploy queued staging', [
+                    'staging_id' => $staging->id,
+                    'project_id' => $staging->project_id,
+                    'reference' => $staging->pr_number,
+                    'error' => $e->getMessage(),
+                ]);
+
+                $this->error("Failed staging #{$staging->id}: {$e->getMessage()}");
+            }
+        });
+})->purpose('Deploy queued stagings once their GHCR images exist')
+    ->everyFifteenSeconds()
+    ->withoutOverlapping();

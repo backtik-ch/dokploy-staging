@@ -21,6 +21,9 @@ class StagingsTable
                 TextColumn::make('pr_number')
                     ->label('reference'),
                 TextColumn::make('branch'),
+                TextColumn::make('deploy_status')
+                    ->label('Deploy status')
+                    ->badge(),
                 TextColumn::make('selected_branches')
                     ->formatStateUsing(function ($state) {
                         if (is_string($state)) {
@@ -33,8 +36,8 @@ class StagingsTable
                         }
 
                         return collect($state)
-                        ->map(fn ($branch, $placeholder) => $placeholder.': '.$branch)
-                        ->implode(' | ');
+                            ->map(fn ($branch, $placeholder) => $placeholder.': '.$branch)
+                            ->implode(' | ');
                     }),
             ])
             ->filters([
@@ -44,7 +47,7 @@ class StagingsTable
                 Action::make('deploy')
                     ->color('success')
                     ->action(fn (Staging $record) => app(DeployService::class)
-                        ->deploy($record->project, 'create', (string) $record->pr_number, $record->branch, $record->selected_branches ?? [])),
+                        ->deploy($record->project, 'create', (string) $record->pr_number, $record->branch, $record->selected_branches ?? [], true)),
 
                 Action::make('delete')
                     ->requiresConfirmation()

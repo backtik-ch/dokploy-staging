@@ -21,6 +21,10 @@ class Staging extends Model
         return [
             'environment' => 'encrypted',
             'selected_branches' => 'array',
+            'missing_images' => 'array',
+            'deploy_requested_at' => 'datetime',
+            'deploy_checked_at' => 'datetime',
+            'deploy_started_at' => 'datetime',
         ];
     }
 
