@@ -7,6 +7,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Schema;
 
 class ProjectForm
@@ -37,6 +38,12 @@ class ProjectForm
                     ->revealable()
                     ->helperText('Token GitHub (scope lecture des repositories/branches). Si vide, utilise SERVICES_GITHUB_TOKEN.'),
 
+                Toggle::make('wait_for_main_image')
+                    ->label('Attendre l’image de la branche principale')
+                    ->default(true)
+                    ->afterStateHydrated(fn (Toggle $component, ?bool $state) => $component->state($state ?? true))
+                    ->helperText('Si activé, le déploiement attend aussi l’image GHCR du repo principal.'),
+
                 Repeater::make('linked_repositories')
                     ->label('Repositories liés')
                     ->schema([
@@ -50,6 +57,11 @@ class ProjectForm
                         TextInput::make('branch_placeholder')
                             ->required()
                             ->helperText('Placeholder dans environment_staging à remplacer, ex: FRONTEND_BRANCH pour {FRONTEND_BRANCH}.'),
+                        Toggle::make('wait_for_image')
+                            ->label('Attendre l’image')
+                            ->default(true)
+                            ->afterStateHydrated(fn (Toggle $component, ?bool $state) => $component->state($state ?? true))
+                            ->helperText('Si désactivé, cette branche est injectée dans l’environnement mais son image GHCR n’est pas attendue.'),
                     ])
                     ->columns(2)
                     ->default([])

@@ -24,6 +24,7 @@ class Project extends Model
             'github_token' => 'encrypted',
             'extra_sub_domains' => 'array',
             'linked_repositories' => 'array',
+            'wait_for_main_image' => 'boolean',
         ];
     }
 

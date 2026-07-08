@@ -50,15 +50,21 @@ class GithubService
 
     private function ghcrImageChecks(Project $project, string $branch, array $selectedBranches): array
     {
-        $images = collect([
-            [
+        $images = collect();
+
+        if ($project->wait_for_main_image !== false) {
+            $images->push([
                 'owner' => $project->github_owner,
                 'repository' => $project->github_repository,
                 'branch' => $branch,
-            ],
-        ]);
+            ]);
+        }
 
         foreach ($project->linked_repositories ?? [] as $repo) {
+            if (! $this->shouldWaitForLinkedImage($repo)) {
+                continue;
+            }
+
             $placeholder = $repo['branch_placeholder'] ?? null;
             $repoBranch = $placeholder ? ($selectedBranches[$placeholder] ?? null) : null;
 
@@ -86,6 +92,15 @@ class GithubService
             })
             ->values()
             ->all();
+    }
+
+    private function shouldWaitForLinkedImage(array $repo): bool
+    {
+        if (! array_key_exists('wait_for_image', $repo)) {
+            return true;
+        }
+
+        return filter_var($repo['wait_for_image'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true;
     }
 
     private function ghcrManifestExists(Project $project, string $path, string $tag): bool
