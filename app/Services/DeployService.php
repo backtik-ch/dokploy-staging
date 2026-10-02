@@ -291,7 +291,7 @@ class DeployService
             'serviceName' => $project->service_name ?? 'server',
             'domainType' => 'compose',
             'middlewares' => [
-                'internal-ipwhitelist@file',
+                //'internal-ipwhitelist@file',
             ],
         ];
 
