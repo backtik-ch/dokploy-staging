@@ -8,6 +8,7 @@ use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 
 class ProjectForm
@@ -71,6 +72,25 @@ class ProjectForm
                     ->required(),
                 TextInput::make('domain_name')
                     ->required(),
+
+                Select::make('certificate_type')
+                    ->label('Certificat TLS')
+                    ->options([
+                        'letsencrypt' => "Let's Encrypt",
+                        'custom' => 'Custom',
+                    ])
+                    ->default('letsencrypt')
+                    ->required()
+                    ->live()
+                    ->helperText('Utilisé pour les nouveaux domaines de staging.'),
+
+                TextInput::make('custom_cert_resolver')
+                    ->label('Résolveur de certificat custom')
+                    ->default('infomaniak')
+                    ->required()
+                    ->maxLength(255)
+                    ->visible(fn (Get $get): bool => $get('certificate_type') === 'custom')
+                    ->helperText('Nom du résolveur configuré dans Dokploy.'),
 
                 TextInput::make('service_name')
                     ->default('server'),

@@ -282,18 +282,24 @@ class DeployService
 
     protected function createDomain(Project $project, string $composeId, string $stagingName): void
     {
+        $certificateType = $project->certificate_type ?? 'letsencrypt';
+
         $basePayload = [
             'domainId' => '',
             'composeId' => $composeId,
             'port' => 80,
             'https' => true,
-            'certificateType' => 'letsencrypt',
+            'certificateType' => $certificateType,
             'serviceName' => $project->service_name ?? 'server',
             'domainType' => 'compose',
             'middlewares' => [
-                //'internal-ipwhitelist@file',
+                // 'internal-ipwhitelist@file',
             ],
         ];
+
+        if ($certificateType === 'custom') {
+            $basePayload['customCertResolver'] = $project->custom_cert_resolver ?? 'infomaniak';
+        }
 
         $this->post($project, 'domain.create', [
             '0' => [
