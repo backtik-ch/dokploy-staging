@@ -10,7 +10,7 @@
 # most recent version of that tag when you build your Dockerfile.
 # If reproducibility is important, consider using a specific digest SHA, like
 # php@sha256:99cede493dfd88720b610eb8077c8688d3cca50003d76d1d539b0efc8cca72b4.
-FROM php:8.4-apache as final
+FROM php:8.4-apache AS final
 
 # Your PHP application may require additional PHP extensions to be installed
 # manually. For detailed instructions for installing extensions can be found, see
@@ -57,11 +57,11 @@ RUN composer install --no-interaction --prefer-dist --optimize-autoloader
 
 
 # ----------------------------------------------------
-# Install Node.js and npm (use the LTS version)
+# Install Node.js 24 LTS with its bundled, compatible npm version.
+# Avoid npm@latest: newer npm releases can require a newer Node.js major.
 # ----------------------------------------------------
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
-    && npm install -g npm@latest
+RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
+    && apt-get install -y nodejs
 
 RUN npm ci
 RUN npm run build
