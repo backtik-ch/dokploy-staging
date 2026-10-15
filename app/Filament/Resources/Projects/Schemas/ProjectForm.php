@@ -95,6 +95,15 @@ class ProjectForm
                 TextInput::make('service_name')
                     ->default('server'),
 
+                TextInput::make('service_port')
+                    ->label('Port du service')
+                    ->integer()
+                    ->minValue(1)
+                    ->maxValue(65535)
+                    ->default(80)
+                    ->required()
+                    ->helperText('Port interne du service ciblé par les domaines de staging (ex: 80 ou 8080).'),
+
                 TagsInput::make('extra_sub_domains'),
 
                 Textarea::make('environment_staging'),

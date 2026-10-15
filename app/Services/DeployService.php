@@ -287,7 +287,7 @@ class DeployService
         $basePayload = [
             'domainId' => '',
             'composeId' => $composeId,
-            'port' => 80,
+            'port' => $project->service_port ?? 80,
             'https' => true,
             'certificateType' => $certificateType,
             'serviceName' => $project->service_name ?? 'server',

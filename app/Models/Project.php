@@ -25,6 +25,7 @@ class Project extends Model
             'extra_sub_domains' => 'array',
             'linked_repositories' => 'array',
             'wait_for_main_image' => 'boolean',
+            'service_port' => 'integer',
         ];
     }
 

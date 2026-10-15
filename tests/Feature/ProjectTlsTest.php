@@ -41,28 +41,30 @@ beforeEach(function (): void {
 
 it('defaults projects and the edit form to letsencrypt', function (): void {
     expect($this->project->certificate_type)->toBe('letsencrypt')
-        ->and($this->project->custom_cert_resolver)->toBe('infomaniak');
+        ->and($this->project->custom_cert_resolver)->toBe('infomaniak')
+        ->and($this->project->service_port)->toBe(80);
 
     Livewire::test(EditProject::class, ['record' => $this->project->getRouteKey()])
-        ->assertFormSet(['certificate_type' => 'letsencrypt'])
+        ->assertFormSet(['certificate_type' => 'letsencrypt', 'service_port' => 80])
         ->assertFormFieldIsHidden('custom_cert_resolver')
         ->fillForm(['certificate_type' => 'custom'])
         ->assertFormFieldIsVisible('custom_cert_resolver')
         ->assertFormSet(['custom_cert_resolver' => 'infomaniak']);
 });
 
-it('saves the TLS choice and uses it for every new staging domain', function (string $certificateType, string $resolver): void {
+it('saves the TLS choice and uses it for every new staging domain', function (string $certificateType, string $resolver, int $servicePort): void {
     // Start with the opposite choice to verify switching providers as well.
     $this->project->update([
         'certificate_type' => $certificateType === 'letsencrypt' ? 'custom' : 'letsencrypt',
     ]);
 
     Livewire::test(EditProject::class, ['record' => $this->project->getRouteKey()])
-        ->fillForm(['certificate_type' => $certificateType, 'custom_cert_resolver' => $resolver])
+        ->fillForm(['certificate_type' => $certificateType, 'custom_cert_resolver' => $resolver, 'service_port' => $servicePort])
         ->call('save')
         ->assertHasNoFormErrors();
 
-    expect($this->project->fresh()->certificate_type)->toBe($certificateType);
+    expect($this->project->fresh()->certificate_type)->toBe($certificateType)
+        ->and($this->project->fresh()->service_port)->toBe($servicePort);
 
     if ($certificateType === 'custom') {
         expect($this->project->fresh()->custom_cert_resolver)->toBe($resolver);
@@ -98,7 +100,8 @@ it('saves the TLS choice and uses it for every new staging domain', function (st
         expect($domain['https'])->toBeTrue()
             ->and($domain['composeId'])->toBe('compose-id')
             ->and($domain['serviceName'])->toBe('server')
-            ->and($domain['certificateType'])->toBe($certificateType);
+            ->and($domain['certificateType'])->toBe($certificateType)
+            ->and($domain['port'])->toBe($servicePort);
 
         if ($certificateType === 'custom') {
             expect($domain['customCertResolver'])->toBe($resolver);
@@ -107,9 +110,10 @@ it('saves the TLS choice and uses it for every new staging domain', function (st
         }
     }
 })->with([
-    'letsencrypt' => ['letsencrypt', 'infomaniak'],
-    'custom infomaniak' => ['custom', 'infomaniak'],
-    'custom resolver' => ['custom', 'another-resolver'],
+    'letsencrypt with default port' => ['letsencrypt', 'infomaniak', 80],
+    'custom infomaniak with app port' => ['custom', 'infomaniak', 8080],
+    'custom resolver with maximum port' => ['custom', 'another-resolver', 65535],
+    'letsencrypt with minimum port' => ['letsencrypt', 'infomaniak', 1],
 ]);
 
 it('rejects unsupported TLS choices in the edit form', function (): void {
@@ -129,3 +133,12 @@ it('requires a resolver when using custom TLS', function (): void {
 
     expect($this->project->fresh()->certificate_type)->toBe('letsencrypt');
 });
+
+it('rejects invalid service ports in the edit form', function (mixed $port): void {
+    Livewire::test(EditProject::class, ['record' => $this->project->getRouteKey()])
+        ->fillForm(['service_port' => $port])
+        ->call('save')
+        ->assertHasFormErrors(['service_port']);
+
+    expect($this->project->fresh()->service_port)->toBe(80);
+})->with([0, -1, 65536, 'invalid', '8080.5', '']);

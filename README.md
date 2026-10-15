@@ -77,3 +77,14 @@ jobs:
 
 Happy deploying! 😄  
 For more information, see the [Dokploy documentation](https://dokploy.com/docs).
+
+## Application service port
+
+Each project's **Port du service** setting chooses the internal port used for
+all new staging domains, including extra subdomains. It defaults to **80** for
+existing and new projects. Set it to **8080** for CatyCare and select the `app`
+service; no additional reverse proxy container is needed.
+
+Run `php artisan migrate --force` when deploying this change. Updating the setting
+affects newly created staging domains; recreate an existing staging or update its
+Dokploy domains separately to change an already configured port.
