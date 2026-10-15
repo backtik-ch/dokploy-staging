@@ -382,7 +382,7 @@ class DeployService
 
     protected function loadServices(Project $project, string $composeId): void
     {
-        $input = json_encode([
+        $input = json_encode((object) [
             '0' => [
                 'json' => [
                     'composeId' => $composeId,

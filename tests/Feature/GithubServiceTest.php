@@ -5,6 +5,31 @@ use App\Services\GithubService;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 
+it('makes no GHCR requests when all image waits are disabled', function (): void {
+    $project = Project::make([
+        'github_owner' => 'backtik-ch',
+        'github_repository' => 'infra',
+        'wait_for_main_image' => false,
+        'linked_repositories' => [
+            [
+                'owner' => 'backtik-ch',
+                'repository' => 'app',
+                'branch_placeholder' => 'APP_BRANCH',
+                'wait_for_image' => false,
+            ],
+        ],
+    ]);
+
+    Http::preventStrayRequests();
+    Http::fake();
+
+    expect(app(GithubService::class)->missingGhcrImages($project, 'main', [
+        'APP_BRANCH' => 'feat/staging-test',
+    ]))->toBe([]);
+
+    Http::assertNothingSent();
+});
+
 it('only waits for GHCR images enabled on the project', function (): void {
     $project = Project::make([
         'github_owner' => 'backtik-ch',
