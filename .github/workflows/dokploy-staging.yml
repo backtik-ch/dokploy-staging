@@ -21,7 +21,7 @@ on:
       runner:
         required: false
         type: string
-        default: ubuntu-latest
+        default: ubuntu-24.04
     secrets:
       dokploy_token:
         required: true
