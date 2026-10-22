@@ -10,7 +10,10 @@ use Illuminate\Support\Facades\Log;
 
 class DeployService
 {
-    public function __construct(private readonly GithubService $githubService) {}
+    public function __construct(
+        private readonly GithubService $githubService,
+        private readonly StagingDeletionService $stagingDeletionService,
+    ) {}
 
     public function deploy(Project $project, string $action, string $stagingReference, string $branch, array $selectedBranches = [], bool $deferUntilImagesExist = false): ?Staging
     {
@@ -92,10 +95,7 @@ class DeployService
                     return null;
                 }
 
-                $this->deleteCompose($project, $staging->compose_id);
-                $this->deleteEnvironment($project, $staging->environment_id);
-
-                $staging->delete();
+                $this->stagingDeletionService->delete($staging);
 
                 return null;
             }
@@ -324,35 +324,6 @@ class DeployService
                 ],
             ]);
         }
-    }
-
-    protected function deleteEnvironment(Project $project, string $envId): void
-    {
-        $this->post($project, 'environment.remove', [
-            '0' => [
-                'json' => [
-                    'environmentId' => $envId,
-                ],
-            ],
-        ]);
-    }
-
-    protected function deleteCompose(Project $project, string $composeId): void
-    {
-        $this->post($project, 'compose.delete', [
-            '0' => [
-                'json' => [
-                    'mongoId' => $composeId,
-                    'postgresId' => $composeId,
-                    'redisId' => $composeId,
-                    'mysqlId' => $composeId,
-                    'mariadbId' => $composeId,
-                    'applicationId' => $composeId,
-                    'composeId' => $composeId,
-                    'deleteVolumes' => true,
-                ],
-            ],
-        ]);
     }
 
     protected function post(Project $project, string $endpoint, array $payload): array

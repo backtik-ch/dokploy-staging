@@ -65,7 +65,7 @@ class Project extends Model
 
         return match ($this->maintenance_enabled) {
             true => 'En maintenance',
-            false => 'Maintenance désactivée',
+            false => 'En ligne',
             null => 'Non vérifiée',
         };
     }

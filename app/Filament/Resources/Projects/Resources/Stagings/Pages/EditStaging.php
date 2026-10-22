@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\Projects\Resources\Stagings\Pages;
 
+use App\Filament\Actions\StagingDeletionActions;
 use App\Filament\Resources\Projects\Resources\Stagings\StagingResource;
-use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 
 class EditStaging extends EditRecord
@@ -13,7 +13,7 @@ class EditStaging extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            StagingDeletionActions::single(),
         ];
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Projects\Resources\Stagings\Tables;
 
+use App\Filament\Actions\StagingDeletionActions;
 use App\Models\Staging;
 use App\Services\DeployService;
 use Filament\Actions\Action;
@@ -59,14 +60,12 @@ class StagingsTable
                     ->action(fn (Staging $record) => app(DeployService::class)
                         ->deploy($record->project, 'create', (string) $record->pr_number, $record->branch, $record->selected_branches ?? [], true)),
 
-                Action::make('delete')
-                    ->label('Supprimer sur Dokploy')
-                    ->requiresConfirmation()
-                    ->color('danger')
-                    ->action(fn (Staging $record) => app(DeployService::class)
-                        ->deploy($record->project, 'delete', (string) $record->pr_number, $record->branch)),
+                StagingDeletionActions::single(),
 
                 EditAction::make(),
+            ])
+            ->toolbarActions([
+                StagingDeletionActions::bulk(),
             ])
             ->emptyStateHeading('Aucun staging pour ce projet')
             ->emptyStateDescription('Les environnements de prévisualisation apparaîtront ici.')

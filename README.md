@@ -42,6 +42,10 @@ vendor/bin/pint --dirty --test
 
 Les tests de maintenance simulent l’API Dokploy : aucun site réel n’est modifié.
 
+### Suppression des stagings
+
+Dans l’onglet **Stagings**, **Supprimer** fonctionne sur une ligne ou sur une sélection de lignes. La suppression tente d’abord de retirer le Compose et son environnement sur Dokploy, puis supprime l’entrée locale. Si une ressource est déjà absente de Dokploy, l’entrée locale peut être supprimée sans erreur. Les erreurs de connexion, de permissions ou de serveur conservent l’entrée locale pour permettre une nouvelle tentative. En suppression groupée, chaque ligne est traitée séparément et les échecs sont signalés sans bloquer les autres lignes.
+
 ## Automatic staging deployments
 
 This repository also enables **automatic staging deployments** on **Dokploy** for every Pull Request using GitHub Actions.

@@ -28,11 +28,12 @@ class ProjectsTable
             ->columns([
                 TextColumn::make('app_name')->label('Projet')->searchable()->sortable()->weight('bold')
                     ->description(fn (Project $record): ?string => $record->github_owner && $record->github_repository ? $record->github_owner.'/'.$record->github_repository : null),
-                TextColumn::make('maintenance_status')->label('Maintenance')->badge()
+                TextColumn::make('maintenance_status')->label('Statut du site')->badge()
                     ->state(fn (Project $record): string => $record->maintenanceStatusLabel())
-                    ->color(fn (Project $record): string => $record->maintenanceStatusColor()),
-                TextColumn::make('maintenance_checked_at')->label('Dernière vérification')->since()->placeholder('Jamais')
-                    ->dateTimeTooltip()->sortable(),
+                    ->color(fn (Project $record): string => $record->maintenanceStatusColor())
+                    ->description(fn (Project $record): string => $record->maintenance_checked_at
+                        ? 'Vérifié le '.$record->maintenance_checked_at->format('d/m/Y à H:i:s T')
+                        : 'Jamais vérifié'),
                 TextColumn::make('stagings_count')->label('Stagings')->badge()->sortable()
                     ->url(fn (Project $record): string => ProjectResource::getUrl('stagings', ['record' => $record])),
                 TextColumn::make('dokploy.name')->label('Connexion Dokploy')
@@ -45,7 +46,7 @@ class ProjectsTable
                 SelectFilter::make('dokploy_id')->label('Connexion Dokploy')->relationship('dokploy', 'base_url')
                     ->getOptionLabelFromRecordUsing(fn ($record): string => $record->connectionLabel())->searchable()->preload(),
                 TernaryFilter::make('maintenance_enabled')->label('Dernier état de maintenance')->nullable()
-                    ->trueLabel('En maintenance')->falseLabel('Maintenance désactivée'),
+                    ->trueLabel('En maintenance')->falseLabel('En ligne'),
             ])
             ->recordActions([
                 ViewAction::make()->label('Ouvrir'),

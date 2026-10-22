@@ -22,7 +22,7 @@ class ProjectInfolist
                 ])
                 ->icon('heroicon-o-wrench-screwdriver')
                 ->schema([
-                    TextEntry::make('maintenance_status')->label('Statut de maintenance')
+                    TextEntry::make('maintenance_status')->label('Statut du site')
                         ->state(fn (Project $record): string => $record->maintenanceStatusLabel())
                         ->badge()->color(fn (Project $record): string => $record->maintenanceStatusColor()),
                     TextEntry::make('maintenance_checked_at')->label('Dernière vérification')->dateTime('d/m/Y H:i:s T')->placeholder('Jamais vérifiée'),
