@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Projects\Pages;
 
 use App\Filament\Resources\Projects\Pages\Concerns\HasProjectHeader;
 use App\Filament\Resources\Projects\ProjectResource;
+use App\Models\DependencyReport;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
 use Filament\Support\Enums\FontFamily;
@@ -45,23 +46,21 @@ class ViewProjectDependencies extends Page implements HasTable
     }
 
     #[Computed]
-    public function comparisons(): Collection
+    public function reports(): Collection
     {
-        return $this->getRecord()->dependencyComparisons();
+        return $this->getRecord()->latestDependencyReportsByImage();
     }
 
     #[Computed]
-    public function comparison(): ?array
+    public function report(): ?DependencyReport
     {
-        return $this->comparisons->get($this->image) ?? $this->comparisons->first();
+        return $this->reports->get($this->image) ?? $this->reports->first();
     }
 
     #[Computed]
     public function rows(): Collection
     {
-        $comparison = $this->comparison;
-
-        return $comparison ? collect($comparison['build']->comparisonRows($comparison['production'])) : collect();
+        return collect($this->report?->comparisonRows() ?? []);
     }
 
     #[Computed]
@@ -77,7 +76,7 @@ class ViewProjectDependencies extends Page implements HasTable
 
     public function updatedImage(): void
     {
-        unset($this->comparison, $this->rows, $this->scopes);
+        unset($this->report, $this->rows, $this->scopes);
         $this->resetPage($this->getTablePaginationPageName());
         $this->flushCachedTableRecords();
     }
@@ -121,9 +120,6 @@ class ViewProjectDependencies extends Page implements HasTable
                 TextColumn::make('installed')->label('Image construite')->badge()
                     ->color(fn (array $record): string => self::statusColor($record['build_status']))
                     ->tooltip(fn (array $record): string => $record['build_status']),
-                TextColumn::make('production')->label('Production')->badge()
-                    ->color(fn (array $record): string => self::statusColor($record['production_status']))
-                    ->tooltip(fn (array $record): string => $record['production_status']),
                 TextColumn::make('build_status')->label('Image / lock')->badge()
                     ->color(fn (string $state): string => self::statusColor($state))
                     ->formatStateUsing(fn (string $state): string => match ($state) {
@@ -144,7 +140,7 @@ class ViewProjectDependencies extends Page implements HasTable
     {
         return match ($status) {
             'Conforme au lock' => 'success',
-            'Écart avec le lock', 'Non installée', 'Hors lock', 'Absente du relevé' => 'warning',
+            'Écart avec le lock', 'Non installée', 'Hors lock' => 'warning',
             default => 'gray',
         };
     }

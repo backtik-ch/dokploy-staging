@@ -4,9 +4,10 @@ Gestion des projets Dokploy : vue d’ensemble, versions et dépendances des ima
 
 ## Versions et dépendances
 
-La vue d’ensemble compare les dépendances déclarées, le lock du dernier build sur
-main, les versions installées dans l’image et le dernier digest confirmé en
-production. Chaque image et plateforme possède son tableau. Le format est commun
+L’onglet Dépendances compare les dépendances déclarées, le lock du dernier build
+sur main et les versions installées dans cette image. Le dernier build sur main
+est la référence du projet, sans étape de confirmation après déploiement.
+Chaque image et plateforme possède son tableau. Le format est commun
 à tous les langages : `language_version` est un texte libre et `dependencies`
 contient les paquets avec leurs versions. Aucun langage ou gestionnaire n’est
 imposé par staging.
@@ -120,21 +121,11 @@ portées par des Form Requests. Les paquets sont stockés dans la table `depende
 rapport par `dependencies()` ; aucune colonne JSON ne stocke ces données.
 L’historique reste en base et l’affichage ne fait aucun appel réseau.
 
-### Confirmer la production
-
-Après un déploiement terminé et vérifié, `POST /api/dependencies/deployed` reçoit
-`project_id`, `image`, `digest` et `platform` correspondant à l’image réellement
-observée sur le serveur. Cet appel utilise le même token staging et la policy
-du projet.
-Le digest doit déjà avoir un rapport connu. Confirmer un ancien digest permet de
-représenter un rollback. Le build ne confirme pas automatiquement la production ;
-sans cet appel, le tableau affiche **Production non confirmée**.
-
 ## Projets et maintenance
 
 Un projet s’ouvre sur une **vue d’ensemble**. La navigation sépare **Vue d’ensemble**, **Stagings**, **Dépendances** et **Réglages**, avec le même titre et les mêmes boutons dans chaque onglet. Les stagings sont disponibles pour tous les projets, sans interrupteur d’activation. La configuration GitHub / Docker Compose peut être renseignée plus tard ; elle doit être complète pour créer un staging.
 
-L’onglet **Dépendances** présente le langage du dernier build et de la production confirmée dans deux cartes. Le tableau compare les versions du lock, de l’image et de la production, avec recherche, pagination et catégories directes, transitives ou de développement. Les métadonnées complètes de l’image sont repliées sous le tableau. Si plusieurs images ou plateformes sont suivies, un sélecteur permet de passer de l’une à l’autre.
+L’onglet **Dépendances** présente le langage du dernier build sur main. Le tableau compare les versions du lock et de l’image, avec recherche, pagination et catégories directes, transitives ou de développement. Les métadonnées complètes de l’image sont repliées sous le tableau. Si plusieurs images ou plateformes sont suivies, un sélecteur permet de passer de l’une à l’autre.
 
 1. Dans **Connexions Dokploy**, donnez un nom explicite à chaque couple instance/token (par exemple « Production · équipe »). Le sélecteur affiche le nom, l’URL et l’identifiant de connexion, sans exposer le token. Les anciennes connexions restent sélectionnables grâce à leur identifiant.
 2. Dans **Projet → Réglages → Projet**, choisissez cette connexion et, si nécessaire, l’ID du serveur distant. Un serveur vide désigne le serveur local Dokploy.

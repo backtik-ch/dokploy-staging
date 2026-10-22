@@ -1,24 +1,22 @@
 <x-filament-panels::page>
     <div class="project-dependencies">
-        @if ($comparison = $this->comparison)
+        @if ($build = $this->report)
             @php
-                $build = $comparison['build'];
-                $production = $comparison['production'];
                 $differences = $this->rows->where('dev', false)->filter(fn ($row) => \App\Filament\Resources\Projects\Pages\ViewProjectDependencies::statusColor($row['build_status']) === 'warning')->count();
             @endphp
 
             <div class="pd-heading">
                 <div>
                     <h2>Dépendances</h2>
-                    <p>Comparez les versions du lock, de l’image construite et de la production.</p>
+                    <p>Comparez les versions du lock et celles de l’image construite sur main.</p>
                 </div>
-                @if ($this->comparisons->count() > 1)
+                @if ($this->reports->count() > 1)
                     <div class="pd-image-select">
                         <label for="dependency-image">Image et plateforme</label>
                         <x-filament::input.wrapper>
                             <x-filament::input.select id="dependency-image" wire:model.live="image">
-                                @foreach ($this->comparisons as $key => $item)
-                                    <option value="{{ $key }}">{{ $item['build']->image }} · {{ $item['build']->platform }}</option>
+                                @foreach ($this->reports as $key => $item)
+                                    <option value="{{ $key }}">{{ $item->image }} · {{ $item->platform }}</option>
                                 @endforeach
                             </x-filament::input.select>
                         </x-filament::input.wrapper>
@@ -28,35 +26,21 @@
                 @endif
             </div>
 
-            <div class="pd-summaries">
-                <x-filament::section icon="heroicon-o-cube" heading="Dernière image construite" compact>
-                    <div class="pd-summary">
+            <x-filament::section icon="heroicon-o-cube" heading="Dernière image construite sur main" compact>
+                <div class="pd-summary">
+                    <div>
+                        <p class="pd-muted">Langage</p>
                         <p class="pd-version">{{ $build->language_version }}</p>
+                    </div>
+                    <div class="pd-build-details">
                         <div class="pd-summary-meta">
                             <x-filament::badge color="primary">{{ $build->branch }}</x-filament::badge>
                             <span title="{{ $build->built_at->format('d/m/Y H:i:s T') }}">{{ $build->built_at->diffForHumans() }}</span>
                         </div>
                         <p class="pd-muted">{{ $build->built_at->format('d/m/Y à H:i') }} · <code>{{ substr($build->commit_sha, 0, 8) }}</code></p>
                     </div>
-                </x-filament::section>
-
-                <x-filament::section icon="heroicon-o-server-stack" heading="Production" compact>
-                    <div class="pd-summary">
-                        @if ($production)
-                            <p class="pd-version">{{ $production->language_version }}</p>
-                            <div class="pd-summary-meta">
-                                <x-filament::badge :color="$production->digest === $build->digest ? 'success' : 'gray'">
-                                    {{ $production->digest === $build->digest ? 'Dernier build déployé' : 'Build précédent' }}
-                                </x-filament::badge>
-                            </div>
-                            <p class="pd-muted">Confirmée le {{ $production->production_confirmed_at->format('d/m/Y à H:i') }} · <code>{{ substr($production->commit_sha, 0, 8) }}</code></p>
-                        @else
-                            <p class="pd-version pd-unconfirmed">Non confirmée</p>
-                            <p class="pd-muted">Les versions apparaîtront après confirmation de l’image déployée.</p>
-                        @endif
-                    </div>
-                </x-filament::section>
-            </div>
+                </div>
+            </x-filament::section>
 
             <div class="pd-inventory">
                 <p><strong>{{ $this->rows->count() }}</strong> dépendances répertoriées</p>
@@ -89,9 +73,6 @@
                     <div><dt>Dépôt</dt><dd>{{ $build->repository }}</dd></div>
                     <div><dt>Commit du build</dt><dd><code>{{ $build->commit_sha }}</code></dd></div>
                     <div><dt>Digest du build</dt><dd><code>{{ $build->digest }}</code></dd></div>
-                    @if ($production)
-                        <div><dt>Digest en production</dt><dd><code>{{ $production->digest }}</code></dd></div>
-                    @endif
                 </dl>
             </x-filament::section>
         @else
@@ -99,7 +80,7 @@
                 <div class="pd-empty">
                     <x-filament::icon icon="heroicon-o-cube-transparent" class="pd-empty-icon" />
                     <h2>Les versions de votre projet, au même endroit</h2>
-                    <p>Le premier rapport affichera le langage et les dépendances de l’image construite, avec une comparaison du lock et de la production.</p>
+                    <p>Le premier rapport affichera le langage et les dépendances de l’image construite sur main, avec une comparaison des versions du lock.</p>
                     <x-filament::badge color="gray">En attente du premier build sur main</x-filament::badge>
                 </div>
             </x-filament::section>
@@ -115,10 +96,9 @@
             .project-dependencies .pd-heading p { margin-top: .25rem; }
             .project-dependencies .pd-image-select { min-width: 15rem; max-width: 28rem; }
             .project-dependencies .pd-image-select label { display: block; font-size: .75rem; margin-bottom: .375rem; color: var(--gray-500); }
-            .project-dependencies .pd-summaries { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; }
-            .project-dependencies .pd-summary { display: grid; gap: .875rem; min-height: 7.5rem; align-content: start; }
+            .project-dependencies .pd-summary { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1.5rem; }
+            .project-dependencies .pd-build-details { display: grid; gap: .875rem; }
             .project-dependencies .pd-version { font-size: 1.75rem; font-weight: 600; letter-spacing: -.025em; line-height: 1.25; overflow-wrap: anywhere; }
-            .project-dependencies .pd-unconfirmed { color: var(--gray-400); font-size: 1.5rem; }
             .project-dependencies .pd-summary-meta, .project-dependencies .pd-inventory { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; font-size: .875rem; }
             .project-dependencies .pd-summary-meta > span { color: var(--gray-500); }
             .project-dependencies .pd-inventory { justify-content: space-between; }
@@ -135,7 +115,6 @@
             @media (max-width: 767px) {
                 .project-dependencies .pd-heading { align-items: flex-start; flex-direction: column; }
                 .project-dependencies .pd-image-select { width: 100%; max-width: none; }
-                .project-dependencies .pd-summaries { grid-template-columns: 1fr; }
                 .project-dependencies .pd-details > div { grid-template-columns: 1fr; gap: .25rem; }
             }
         </style>

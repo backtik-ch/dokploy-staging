@@ -14,7 +14,6 @@ class DependencyReport extends Model
     {
         return [
             'built_at' => 'immutable_datetime',
-            'production_confirmed_at' => 'immutable_datetime',
         ];
     }
 
@@ -28,59 +27,47 @@ class DependencyReport extends Model
         return $this->hasMany(DependencyReportPackage::class);
     }
 
-    public function comparisonRows(?self $production = null): array
+    public function comparisonRows(): array
     {
-        $key = fn (array $dependency): string => json_encode([$dependency['manager'] ?? '', $dependency['path'] ?? '', $dependency['name']]);
-        $built = $this->dependencies->map(fn (DependencyReportPackage $package): array => $package->comparisonData())->keyBy($key);
-        $deployed = collect($production?->dependencies ?? [])->map(fn (DependencyReportPackage $package): array => $package->comparisonData())->keyBy($key);
-
-        return $built->keys()->merge($deployed->keys())->unique()->map(function (string $key) use ($built, $deployed, $production): array {
-            $build = $built->get($key);
-            $prod = $deployed->get($key);
-            $dependency = $build ?? $prod;
+        return $this->dependencies->map(function (DependencyReportPackage $package): array {
+            $dependency = $package->comparisonData();
             $dev = (bool) ($dependency['dev'] ?? false);
 
             return [
                 'name' => $dependency['name'],
                 'manager' => $dependency['manager'] ?? null,
                 'path' => $dependency['path'] ?? null,
-                'required' => $build['required'] ?? '—',
-                'locked' => $build['locked'] ?? '—',
-                'installed' => $build['installed'] ?? '—',
-                'production' => $prod['installed'] ?? '—',
+                'required' => $dependency['required'] ?? '—',
+                'locked' => $dependency['locked'] ?? '—',
+                'installed' => $dependency['installed'] ?? '—',
                 'dev' => $dev,
                 'direct' => (bool) ($dependency['direct'] ?? true),
-                'build_status' => self::comparisonStatus($build, $build, $dev),
-                'production_status' => $production === null ? 'Non confirmée' : self::comparisonStatus($build, $prod, $dev),
+                'build_status' => self::comparisonStatus($dependency, $dev),
             ];
         })->sortBy(fn (array $row): string => ($row['dev'] ? '2' : ($row['direct'] ? '0' : '1')).$row['name'])->values()->all();
     }
 
-    private static function comparisonStatus(?array $lock, ?array $observed, bool $dev): string
+    private static function comparisonStatus(array $dependency, bool $dev): string
     {
-        if ($observed === null) {
-            return 'Absente du relevé';
-        }
-
-        if (! array_key_exists('installed', $observed)) {
+        if (! array_key_exists('installed', $dependency)) {
             return 'Version installée non relevée';
         }
 
-        if ($observed['installed'] === null) {
+        if ($dependency['installed'] === null) {
             return $dev ? 'Dev non installée' : 'Non installée';
         }
 
-        if ($lock === null || ! array_key_exists('locked', $lock)) {
+        if (! array_key_exists('locked', $dependency)) {
             return 'Sans version verrouillée';
         }
 
-        if ($lock['locked'] === null) {
+        if ($dependency['locked'] === null) {
             return 'Hors lock';
         }
 
-        $equal = ltrim($lock['locked'], 'v') === ltrim($observed['installed'], 'v');
-        $sameReference = ! isset($lock['locked_reference'], $observed['installed_reference'])
-            || $lock['locked_reference'] === $observed['installed_reference'];
+        $equal = ltrim($dependency['locked'], 'v') === ltrim($dependency['installed'], 'v');
+        $sameReference = ! isset($dependency['locked_reference'], $dependency['installed_reference'])
+            || $dependency['locked_reference'] === $dependency['installed_reference'];
 
         return $equal && $sameReference ? 'Conforme au lock' : 'Écart avec le lock';
     }

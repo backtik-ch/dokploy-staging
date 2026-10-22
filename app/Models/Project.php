@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Collection;
 
 class Project extends Model
 {
@@ -98,28 +100,28 @@ class Project extends Model
 
     public function latestDependencyReport(): HasOne
     {
-        return $this->hasOne(DependencyReport::class)->ofMany(['built_at' => 'max', 'id' => 'max']);
+        return $this->hasOne(DependencyReport::class)->ofMany(
+            ['built_at' => 'max', 'id' => 'max'],
+            fn (Builder $query) => $query->where('branch', 'main'),
+        );
     }
 
-    public function dependencyComparisons(): \Illuminate\Support\Collection
+    public function latestDependencyReportsByImage(): Collection
     {
-        // Only load the most recent build and the confirmed production for each image/platform.
-        $latest = $this->dependencyReports()->select('id')->whereNotExists(function ($query): void {
+        return $this->dependencyReports()->with('dependencies')->where('branch', 'main')->whereNotExists(function ($query): void {
             $query->selectRaw('1')->from('dependency_reports as newer')
                 ->whereColumn('newer.project_id', 'dependency_reports.project_id')
                 ->whereColumn('newer.image', 'dependency_reports.image')
                 ->whereColumn('newer.platform', 'dependency_reports.platform')
+                ->where('newer.branch', 'main')
                 ->where(function ($query): void {
                     $query->whereColumn('newer.built_at', '>', 'dependency_reports.built_at')
                         ->orWhere(function ($query): void {
                             $query->whereColumn('newer.built_at', 'dependency_reports.built_at')->whereColumn('newer.id', '>', 'dependency_reports.id');
                         });
                 });
-        });
-
-        return $this->dependencyReports()->with('dependencies')->where(fn ($query) => $query->whereIn('id', $latest)->orWhereNotNull('production_confirmed_at'))
+        })
             ->orderByDesc('built_at')->orderByDesc('id')->get()
-            ->groupBy(fn (DependencyReport $report): string => $report->image.'@'.$report->platform)
-            ->map(fn ($reports): array => ['build' => $reports->first(), 'production' => $reports->firstWhere('production_confirmed_at', '!=', null)]);
+            ->keyBy(fn (DependencyReport $report): string => $report->image.'@'.$report->platform);
     }
 }
