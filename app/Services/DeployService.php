@@ -14,6 +14,12 @@ class DeployService
 
     public function deploy(Project $project, string $action, string $stagingReference, string $branch, array $selectedBranches = [], bool $deferUntilImagesExist = false): ?Staging
     {
+        if ($action === 'create' && ! $project->hasStagingConfiguration()) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'project_id' => 'Complétez la configuration des stagings dans les réglages du projet avant de déployer.',
+            ]);
+        }
+
         try {
             $snakeReference = $this->snake($stagingReference);
 

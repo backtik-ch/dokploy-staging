@@ -16,6 +16,24 @@ class Dokploy extends Model
 
     protected $guarded = ['id'];
 
+    public function connectionLabel(): string
+    {
+        return ($this->name ?: 'Connexion Dokploy').' · '.$this->base_url.' · #'.$this->id;
+    }
+
+    protected static function booted(): void
+    {
+        static::updated(function (Dokploy $dokploy): void {
+            if ($dokploy->wasChanged(['base_url', 'token'])) {
+                $dokploy->projects()->update([
+                    'maintenance_enabled' => null,
+                    'maintenance_checked_at' => null,
+                    'maintenance_error' => null,
+                ]);
+            }
+        });
+    }
+
     protected function casts(): array
     {
         return [

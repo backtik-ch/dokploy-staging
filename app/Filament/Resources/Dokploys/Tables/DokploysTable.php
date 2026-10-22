@@ -14,9 +14,11 @@ class DokploysTable
     {
         return $table
             ->columns([
-                TextColumn::make('base_url'),
-                TextColumn::make('token')
-                    ->limit(40),
+                TextColumn::make('name')->label('Connexion')->searchable()->sortable()
+                    ->placeholder(fn ($record): string => 'Connexion #'.$record->id),
+                TextColumn::make('base_url')->label('URL Dokploy')->searchable()->copyable(),
+                TextColumn::make('id')->label('Identifiant')->prefix('#')->sortable(),
+                TextColumn::make('projects_count')->label('Projets')->counts('projects')->badge(),
             ])
             ->filters([
                 //

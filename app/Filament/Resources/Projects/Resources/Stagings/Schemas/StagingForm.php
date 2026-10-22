@@ -4,7 +4,6 @@ namespace App\Filament\Resources\Projects\Resources\Stagings\Schemas;
 
 use App\Models\Project;
 use App\Services\GithubService;
-use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
@@ -30,7 +29,7 @@ class StagingForm
                     ->options(function ($livewire): array {
                         $project = self::resolveProject($livewire);
 
-                        if (! $project) {
+                        if (! $project || ! $project->hasStagingConfiguration()) {
                             return [];
                         }
 
@@ -73,7 +72,7 @@ class StagingForm
 
     private static function resolveProject(mixed $livewire): ?Project
     {
-        if (method_exists($livewire, 'getOwnerRecord')) {
+        if (method_exists($livewire, 'getOwnerRecord') && $livewire->getOwnerRecord() instanceof Project) {
             return $livewire->getOwnerRecord();
         }
 

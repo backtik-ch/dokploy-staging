@@ -18,11 +18,11 @@ class StagingResource extends Resource
 {
     protected static ?string $model = Staging::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBeaker;
 
     protected static ?string $parentResource = ProjectResource::class;
 
-    protected static ?string $recordTitleAttribute = 'id';
+    protected static ?string $recordTitleAttribute = 'pr_number';
 
     public static function form(Schema $schema): Schema
     {
