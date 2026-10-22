@@ -20,7 +20,12 @@ class ProjectsTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with('dokploy')->withCount('stagings'))
+            ->modifyQueryUsing(fn ($query) => $query->with([
+                'dokploy',
+                'latestDependencyReport' => fn ($report) => $report->select([
+                    'dependency_reports.id', 'dependency_reports.project_id', 'dependency_reports.language_version', 'dependency_reports.built_at',
+                ]),
+            ])->withCount('stagings'))
             ->defaultSort('app_name')
             ->recordUrl(fn (Project $record): string => ProjectResource::getUrl('view', ['record' => $record]))
             ->emptyStateHeading('Vos projets au même endroit')
@@ -36,6 +41,9 @@ class ProjectsTable
                         : 'Jamais vérifié'),
                 TextColumn::make('stagings_count')->label('Stagings')->badge()->sortable()
                     ->url(fn (Project $record): string => ProjectResource::getUrl('stagings', ['record' => $record])),
+                TextColumn::make('latestDependencyReport.language_version')->label('Langage · dernier build')->badge()
+                    ->placeholder('Aucun relevé')->toggleable()
+                    ->description(fn (Project $record): ?string => $record->latestDependencyReport?->built_at->diffForHumans()),
                 TextColumn::make('domain_name')->label('Domaine de staging')->searchable()->toggleable(),
             ])
             ->filters([

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Project extends Model
@@ -88,5 +89,37 @@ class Project extends Model
     public function stagings(): HasMany
     {
         return $this->hasMany(Staging::class);
+    }
+
+    public function dependencyReports(): HasMany
+    {
+        return $this->hasMany(DependencyReport::class);
+    }
+
+    public function latestDependencyReport(): HasOne
+    {
+        return $this->hasOne(DependencyReport::class)->ofMany(['built_at' => 'max', 'id' => 'max']);
+    }
+
+    public function dependencyComparisons(): \Illuminate\Support\Collection
+    {
+        // Only load the most recent build and the confirmed production for each image/platform.
+        $latest = $this->dependencyReports()->select('id')->whereNotExists(function ($query): void {
+            $query->selectRaw('1')->from('dependency_reports as newer')
+                ->whereColumn('newer.project_id', 'dependency_reports.project_id')
+                ->whereColumn('newer.image', 'dependency_reports.image')
+                ->whereColumn('newer.platform', 'dependency_reports.platform')
+                ->where(function ($query): void {
+                    $query->whereColumn('newer.built_at', '>', 'dependency_reports.built_at')
+                        ->orWhere(function ($query): void {
+                            $query->whereColumn('newer.built_at', 'dependency_reports.built_at')->whereColumn('newer.id', '>', 'dependency_reports.id');
+                        });
+                });
+        });
+
+        return $this->dependencyReports()->with('dependencies')->where(fn ($query) => $query->whereIn('id', $latest)->orWhereNotNull('production_confirmed_at'))
+            ->orderByDesc('built_at')->orderByDesc('id')->get()
+            ->groupBy(fn (DependencyReport $report): string => $report->image.'@'.$report->platform)
+            ->map(fn ($reports): array => ['build' => $reports->first(), 'production' => $reports->firstWhere('production_confirmed_at', '!=', null)]);
     }
 }

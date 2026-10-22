@@ -6,6 +6,7 @@ use App\Filament\Actions\ProjectMaintenanceActions;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Project;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Components\ViewEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 
@@ -14,6 +15,11 @@ class ProjectInfolist
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
+            Section::make('Versions et dépendances')->icon('heroicon-o-cube')->columnSpanFull()
+                ->description('Lock et versions relevés dans l’image finale construite sur main. La production apparaît après confirmation du digest déployé.')
+                ->schema([
+                    ViewEntry::make('dependencies')->hiddenLabel()->view('filament.projects.dependencies')->columnSpanFull(),
+                ]),
             Section::make('Maintenance du site')
                 ->key('site-maintenance')
                 ->description('Statut Traefik mis en cache pendant 3 minutes. Utilisez l’icône d’actualisation pour forcer une vérification.')

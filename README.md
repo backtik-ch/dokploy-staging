@@ -1,6 +1,114 @@
 # Dokploy · Projets
 
-Gestion des projets Dokploy : vue d’ensemble, maintenance du site et environnements de staging. Les dépendances et les autres indicateurs de santé pourront être ajoutés à la vue projet ultérieurement.
+Gestion des projets Dokploy : vue d’ensemble, versions et dépendances des images, maintenance du site et environnements de staging.
+
+## Versions et dépendances
+
+La vue d’ensemble compare les dépendances déclarées, le lock du dernier build sur
+main, les versions installées dans l’image et le dernier digest confirmé en
+production. Chaque image et plateforme possède son tableau. Le format est commun
+à tous les langages : `language_version` est un texte libre et `dependencies`
+contient les paquets avec leurs versions. Aucun langage ou gestionnaire n’est
+imposé par staging.
+
+### Activer le relevé
+
+Exécutez `php artisan migrate --force` avant de déployer les nouvelles actions.
+Le workflow réutilise le secret `DOKPLOY_STAGING_TOKEN` déjà employé pour les
+stagings de cette même application :
+
+```yaml
+- name: Build and push image
+  id: app
+  uses: backtik-ch/backtik-actions/actions/docker-build-push@main
+  with:
+    context: .
+    dockerfile: Dockerfile
+    image_name: mon-app
+    branch: ${{ github.ref_name }}
+    dependencies_project_id: ${{ vars.STAGING_PROJECT_ID }}
+    staging_token: ${{ secrets.DOKPLOY_STAGING_TOKEN }}
+    # staging_url: https://staging.backtik.ch
+    # dependencies_language: node
+    # dependencies_application_path: /app
+```
+
+Si le build reçoit déjà `secrets_json`, il réutilise automatiquement sa valeur
+`DOKPLOY_STAGING_TOKEN` ou `dokploy_token`, sans ajouter `staging_token`.
+L’identifiant du projet reste nécessaire pour associer les rapports à sa fiche.
+L’API réutilise l’authentification Sanctum et la policy du projet, sans ability
+spécifique aux dépendances.
+
+L’action `deploy-dependencies` lance `report.js`, placé à côté de son `action.yml`,
+avec Node.js. Le script inspecte l’image exacte par digest et détecte PHP,
+Node.js ou Python, ou utilise le choix explicite `dependencies_language`.
+Les sources automatiques sont :
+
+- PHP : `composer.json`, `composer.lock` si présent et les métadonnées Composer installées.
+- Node.js : `package.json`, `package-lock.json` si présent et les `package.json` des modules installés ; les versions npm imbriquées restent distinctes par chemin.
+- Python : `requirements.txt` si présent et les distributions de l’interpréteur ; seules les contraintes exactes `==` sont traitées comme versions verrouillées.
+
+Les fichiers sont lus dans l’image finale, sans démarrer l’application. Un
+Dockerfile peut retirer le runtime ou les manifests après compilation : utilisez
+alors `dependencies_report_file` pour envoyer un JSON préparé par le projet. Ce
+même mécanisme accepte n’importe quel autre langage ou gestionnaire. Pour un
+build multilangage, le texte `language_version` peut décrire les runtimes utiles.
+Le collecteur automatique inspecte la plateforme sélectionnée par Docker sur le
+runner. PHP correspond au binaire CLI, et non à une sonde du processus FPM.
+
+Sans projet configuré, aucun rapport n’est envoyé. Les PR et les autres branches
+ne déclenchent pas le relevé. Une erreur fait échouer l’étape de relevé ; l’image
+publiée reste disponible.
+
+### Contrat de l’API
+
+`POST /api/dependencies`, authentifié par le token staging existant, reçoit :
+
+```json
+{
+  "project_id": 2,
+  "repository": "backtik-ch/mon-app",
+  "branch": "main",
+  "commit_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "image": "ghcr.io/backtik-ch/mon-app",
+  "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "platform": "linux/amd64",
+  "built_at": "2026-10-22T10:00:00Z",
+  "language_version": "Node.js 24.0.0",
+  "dependencies": [
+    {"name": "@acme/ui", "manager": "npm", "required": "^2.0.0", "locked": "2.1.0", "installed": "2.1.0"},
+    {"name": "express", "manager": "npm", "required": "^5.0.0", "locked": "5.1.0", "installed": "5.1.0"}
+  ]
+}
+```
+
+Seuls `name` et la liste `dependencies` sont imposés pour les paquets. `required`,
+`locked`, `installed`, `manager`, `path`, `dev`, `direct`, `locked_reference` et
+`installed_reference` sont facultatifs. Un champ `installed` omis signifie que
+la version n’a pas été relevée ; `installed: null` signale une dépendance absente.
+La même distinction s’applique à `locked`. `direct` vaut vrai et `dev` faux par
+défaut. L’identité d’une dépendance est `(manager, path, name)`, sans imposer de
+format Composer au nom : les noms npm simples ou scopés et les noms d’autres
+écosystèmes sont acceptés. Une liste vide est valide.
+
+La réponse contient l’`id` du rapport (HTTP 201, ou 200 pour une répétition).
+Les rapports restent immuables, dédupliqués par projet, image, digest et plateforme.
+La date de création de l’image détermine le dernier build, indépendamment de
+l’ordre d’arrivée. Les dépendances de développement absentes et les informations
+non relevées sont indiquées séparément. La validation et les autorisations sont
+portées par des Form Requests. Les paquets sont stockés dans la table `dependency_report_packages`, reliée au
+rapport par `dependencies()` ; aucune colonne JSON ne stocke ces données.
+L’historique reste en base et l’affichage ne fait aucun appel réseau.
+
+### Confirmer la production
+
+Après un déploiement terminé et vérifié, `POST /api/dependencies/deployed` reçoit
+`project_id`, `image`, `digest` et `platform` correspondant à l’image réellement
+observée sur le serveur. Cet appel utilise le même token staging et la policy
+du projet.
+Le digest doit déjà avoir un rapport connu. Confirmer un ancien digest permet de
+représenter un rollback. Le build ne confirme pas automatiquement la production ;
+sans cet appel, le tableau affiche **Production non confirmée**.
 
 ## Projets et maintenance
 
