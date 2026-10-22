@@ -2,6 +2,55 @@
 
 Gestion des projets Dokploy : vue d’ensemble, versions et dépendances des images, maintenance du site et environnements de staging.
 
+## Logs Loki
+
+L’entrée **Logs** de la barre latérale ouvre `/logs` (authentification Filament
+requise). La page utilise les labels du dashboard `Logs Overview` de
+`monitoring-servers` : `project`, `service`, `env`, `level`. Les projets sont
+les valeurs réellement présentes dans Loki, indépendamment des projets Dokploy.
+
+```dotenv
+LOKI_URL=http://loki:3100
+LOKI_PROJECT_LABEL=project
+LOKI_SELECTOR='{project=~".+"}'
+```
+
+`http://loki:3100` est l’adresse interne déclarée par la datasource Grafana de
+`monitoring-servers`. Elle fonctionne si l’application et Loki partagent un
+réseau Docker permettant de résoudre `loki`. Sinon, définir dans
+l’environnement de déploiement une URL Loki accessible depuis le serveur PHP.
+La configuration Compose de ce dépôt ne partage pas automatiquement le réseau
+de `monitoring-servers`.
+
+Pour un Loki protégé, renseigner soit `LOKI_USERNAME` / `LOKI_PASSWORD` (Basic),
+soit `LOKI_TOKEN` (Bearer, prioritaire). `LOKI_TENANT_ID` ajoute l’en-tête
+`X-Scope-OrgID` si nécessaire. Aucun identifiant n’est transmis au navigateur.
+Après changement des variables, recharger le cache de configuration Laravel
+si le déploiement l’utilise (`php artisan config:cache`).
+
+La recherche littérale dans le corps du log et les filtres de labels sont
+exécutés dans Loki **avant** la limite de résultats. La casse est ignorée par
+défaut ; une option permet de la respecter. Les labels supplémentaires sont
+combinés avec les filtres principaux. La période peut être prédéfinie ou
+personnalisée (sept jours maximum), avec des heures affichées en UTC.
+
+La page charge les 500 à 5 000 lignes les plus récentes, puis propose un tri,
+une pagination, des messages compacts ou dépliés, un panneau de détail avec
+JSON formaté / contenu brut / labels, une action pour isoler un flux et un
+export NDJSON des lignes chargées. Les widgets et le graphique portent sur
+cette sélection ; une alerte indique lorsque la limite est atteinte. Le bouton
+**Activité** affiche le graphique à la demande pour garder la table accessible.
+Le niveau est lu dans les labels, les métadonnées ou le JSON, puis estimé pour
+les messages texte ; le filtre Niveau porte toujours sur le label Loki `level`.
+
+Le suivi interroge Loki toutes les dix secondes et se suspend lors de la lecture
+des détails, sur les pages suivantes du tableau et pour une période personnalisée.
+Les découvertes de labels sont mises en cache une minute, les résultats trente
+secondes, avec isolation par connexion et tenant. Une connexion absente ou en
+erreur affiche un message explicite sans masquer l’erreur sous un tableau vide.
+
+Validation : `php artisan test --compact tests/Feature/LogsTest.php`.
+
 ## Versions et dépendances
 
 L’onglet Dépendances compare les dépendances déclarées, le lock du dernier build
