@@ -18,29 +18,47 @@ Le workflow réutilise le secret `DOKPLOY_STAGING_TOKEN` déjà employé pour le
 stagings de cette même application :
 
 ```yaml
-- name: Build and push image
-  id: app
-  uses: backtik-ch/backtik-actions/actions/docker-build-push@main
-  with:
-    context: .
-    dockerfile: Dockerfile
-    image_name: mon-app
-    branch: ${{ github.ref_name }}
-    dependencies_project_id: ${{ vars.STAGING_PROJECT_ID }}
-    staging_token: ${{ secrets.DOKPLOY_STAGING_TOKEN }}
-    # staging_url: https://staging.backtik.ch
-    # dependencies_language: node
-    # dependencies_application_path: /app
+jobs:
+  build-and-push:
+    uses: backtik-ch/backtik-actions/.github/workflows/docker-build-push.yml@main
+    permissions:
+      contents: read
+      packages: write
+      actions: read
+    with:
+      dependencies_project_id: '9'
+      # dependencies_language: node
+      # dockerfile: Dockerfile
+      # image_name: mon-app
+      # staging_url: https://staging.backtik.ch
+    secrets:
+      DOKPLOY_STAGING_TOKEN: ${{ secrets.DOKPLOY_STAGING_TOKEN }}
+      # registry_token: ${{ secrets.EXISTING_GHCR_TOKEN }}
 ```
 
-Si le build reçoit déjà `secrets_json`, il réutilise automatiquement sa valeur
-`DOKPLOY_STAGING_TOKEN` ou `dokploy_token`, sans ajouter `staging_token`.
-L’identifiant du projet reste nécessaire pour associer les rapports à sa fiche.
+Le workflow partagé gère le build et les deux étapes du relevé. Le runner GitHub
+construit le JSON et le conserve comme artefact, sans contacter l’API staging.
+Un job interne `self-hosted` télécharge le JSON et l’envoie avec le token existant.
+Le projet appelant n’a aucun job de reporting ni transfert d’artefact à définir.
+Le nom de l’image et sa branche reprennent par défaut ceux du dépôt appelant.
+Un token GHCR existant peut être passé comme secret `registry_token` ; sinon,
+le workflow utilise `github.token`.
+
+Les projets utilisant l’action composite `actions/docker-build-push` doivent
+passer une fois à ce workflow réutilisable, appelé au niveau d’un job. Les évolutions
+suivantes du build et du relevé restent centralisées dans backtik-actions.
+L’action composite reste disponible pour les workflows personnalisés et les PR.
+
+Les erreurs de collecte et d’envoi sont tolérées. Un job de déploiement dépendant
+du workflow partagé attend la fin de ses jobs internes, puis démarre même si
+l’envoi a échoué. Les artefacts de transit sont conservés un jour. Publiez d’abord
+le nouveau workflow dans backtik-actions avant de mettre à jour les appelants.
+
 L’API réutilise l’authentification Sanctum et la policy du projet, sans ability
 spécifique aux dépendances.
 
 L’action `deploy-dependencies` lance `report.js`, placé à côté de son `action.yml`,
-avec Node.js. Le script inspecte l’image exacte par digest et détecte PHP,
+avec Node.js. En mode `collect`, le script inspecte l’image exacte par digest et détecte PHP,
 Node.js ou Python, ou utilise le choix explicite `dependencies_language`.
 Les sources automatiques sont :
 
@@ -48,7 +66,9 @@ Les sources automatiques sont :
 - Node.js : `package.json`, `package-lock.json` si présent et les `package.json` des modules installés ; les versions npm imbriquées restent distinctes par chemin.
 - Python : `requirements.txt` si présent et les distributions de l’interpréteur ; seules les contraintes exactes `==` sont traitées comme versions verrouillées.
 
-Les fichiers sont lus dans l’image finale, sans démarrer l’application. Un
+Le mode `send` transmet seulement le JSON existant ; il n’utilise pas Docker et
+ne recalcule pas les versions. Les fichiers sont lus dans l’image finale lors de
+la collecte, sans démarrer l’application. Un
 Dockerfile peut retirer le runtime ou les manifests après compilation : utilisez
 alors `dependencies_report_file` pour envoyer un JSON préparé par le projet. Ce
 même mécanisme accepte n’importe quel autre langage ou gestionnaire. Pour un
@@ -112,12 +132,14 @@ sans cet appel, le tableau affiche **Production non confirmée**.
 
 ## Projets et maintenance
 
-Un projet s’ouvre sur une **vue d’ensemble**. La navigation sépare **Vue d’ensemble**, **Stagings** et **Réglages**, avec le même titre et les mêmes boutons dans chaque onglet. Les stagings sont disponibles pour tous les projets, sans interrupteur d’activation. La configuration GitHub / Docker Compose peut être renseignée plus tard ; elle doit être complète pour créer un staging.
+Un projet s’ouvre sur une **vue d’ensemble**. La navigation sépare **Vue d’ensemble**, **Stagings**, **Dépendances** et **Réglages**, avec le même titre et les mêmes boutons dans chaque onglet. Les stagings sont disponibles pour tous les projets, sans interrupteur d’activation. La configuration GitHub / Docker Compose peut être renseignée plus tard ; elle doit être complète pour créer un staging.
+
+L’onglet **Dépendances** présente le langage du dernier build et de la production confirmée dans deux cartes. Le tableau compare les versions du lock, de l’image et de la production, avec recherche, pagination et catégories directes, transitives ou de développement. Les métadonnées complètes de l’image sont repliées sous le tableau. Si plusieurs images ou plateformes sont suivies, un sélecteur permet de passer de l’une à l’autre.
 
 1. Dans **Connexions Dokploy**, donnez un nom explicite à chaque couple instance/token (par exemple « Production · équipe »). Le sélecteur affiche le nom, l’URL et l’identifiant de connexion, sans exposer le token. Les anciennes connexions restent sélectionnables grâce à leur identifiant.
 2. Dans **Projet → Réglages → Projet**, choisissez cette connexion et, si nécessaire, l’ID du serveur distant. Un serveur vide désigne le serveur local Dokploy.
 3. Dans **Réglages → Maintenance**, renseignez **Fichier YAML de maintenance** (`maintenance_yml_file`) : par exemple `veille-maintenance.yml`, relatif à `/etc/dokploy/traefik/dynamic`, ou un chemin absolu sur le serveur.
-4. Le statut est chargé à l’ouverture de la fiche et conservé en cache pendant **3 minutes**, y compris entre les changements d’onglet. Un seul bouton propose **Mettre en maintenance** ou **Remettre en ligne** selon cet état. Le bouton **Créer un staging** ouvre une modale au même endroit dans les trois onglets. Dans la vue d’ensemble, l’icône à deux flèches à droite de **Maintenance du site** force une lecture sans cache. Les actions explicites de maintenance restent accessibles dans le menu de la liste des projets.
+4. Le statut est chargé à l’ouverture de la fiche et conservé en cache pendant **3 minutes**, y compris entre les changements d’onglet. Un seul bouton propose **Mettre en maintenance** ou **Remettre en ligne** selon cet état. Le bouton **Créer un staging** ouvre une modale au même endroit dans chaque onglet. Dans la vue d’ensemble, l’icône à deux flèches à droite de **Maintenance du site** force une lecture sans cache. Les actions explicites de maintenance restent accessibles dans le menu de la liste des projets.
 
 Le fichier doit déjà être configuré sur Dokploy et contenir exactement un drapeau Go template :
 

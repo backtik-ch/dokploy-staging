@@ -7,6 +7,7 @@ use App\Filament\Resources\Projects\Pages\EditProject;
 use App\Filament\Resources\Projects\Pages\ListProjects;
 use App\Filament\Resources\Projects\Pages\ManageProjectStagings;
 use App\Filament\Resources\Projects\Pages\ViewProject;
+use App\Filament\Resources\Projects\Pages\ViewProjectDependencies;
 use App\Filament\Resources\Projects\Schemas\ProjectForm;
 use App\Filament\Resources\Projects\Schemas\ProjectInfolist;
 use App\Filament\Resources\Projects\Tables\ProjectsTable;
@@ -55,6 +56,7 @@ class ProjectResource extends Resource
         return $page->generateNavigationItems([
             ViewProject::class,
             ManageProjectStagings::class,
+            ViewProjectDependencies::class,
             EditProject::class,
         ]);
     }
@@ -66,6 +68,7 @@ class ProjectResource extends Resource
             'create' => CreateProject::route('/create'),
             'view' => ViewProject::route('/{record}'),
             'stagings' => ManageProjectStagings::route('/{record}/stagings'),
+            'dependencies' => ViewProjectDependencies::route('/{record}/dependencies'),
             'edit' => EditProject::route('/{record}/edit'),
         ];
     }
