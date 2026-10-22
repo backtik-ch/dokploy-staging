@@ -51,11 +51,20 @@ class LokiClient
 
         $body = $response->json();
 
-        if (! is_array($body) || ($body['status'] ?? null) !== 'success' || ! is_array($body['data'] ?? null)) {
-            throw new LokiException('Loki a renvoyé une réponse inattendue. Vérifiez la configuration du service.');
+        if (is_array($body) && ($body['status'] ?? null) === 'success') {
+            $data = $body['data'] ?? null;
+
+            if (is_array($data)) {
+                return $data;
+            }
+
+            // Loki can omit data or return null when no label names or values exist.
+            if ($data === null && ($path === 'labels' || preg_match('#^label/[a-zA-Z_][a-zA-Z0-9_]*/values$#D', $path))) {
+                return [];
+            }
         }
 
-        return $body['data'];
+        throw new LokiException('Loki a renvoyé une réponse inattendue. Vérifiez la configuration du service.');
     }
 
     public function cached(string $path, array $parameters, int $seconds = 60): array
