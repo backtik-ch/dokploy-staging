@@ -32,15 +32,11 @@ class ProjectsTable
                     ->state(fn (Project $record): string => $record->maintenanceStatusLabel())
                     ->color(fn (Project $record): string => $record->maintenanceStatusColor())
                     ->description(fn (Project $record): string => $record->maintenance_checked_at
-                        ? 'Vérifié le '.$record->maintenance_checked_at->format('d/m/Y à H:i:s T')
+                        ? $record->maintenance_checked_at->diffForHumans()
                         : 'Jamais vérifié'),
                 TextColumn::make('stagings_count')->label('Stagings')->badge()->sortable()
                     ->url(fn (Project $record): string => ProjectResource::getUrl('stagings', ['record' => $record])),
-                TextColumn::make('dokploy.name')->label('Connexion Dokploy')
-                    ->state(fn (Project $record): string => $record->dokploy ? ($record->dokploy->name ?: 'Connexion').' · #'.$record->dokploy_id : 'Connexion supprimée')
-                    ->description(fn (Project $record): ?string => $record->dokploy?->base_url),
-                TextColumn::make('domain_name')->label('Domaine de staging')->searchable()->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('server_id')->label('Serveur')->placeholder('Local')->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('domain_name')->label('Domaine de staging')->searchable()->toggleable(),
             ])
             ->filters([
                 SelectFilter::make('dokploy_id')->label('Connexion Dokploy')->relationship('dokploy', 'base_url')
