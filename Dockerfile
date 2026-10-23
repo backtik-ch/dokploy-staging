@@ -44,6 +44,8 @@ RUN apt-get update && apt-get install -y \
 # https://github.com/docker-library/docs/tree/master/php#configuration
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
+COPY docker/php.ini /usr/local/etc/php/conf.d/99-app.ini
+
 # Copy the app files from the app directory.
 WORKDIR /var/www/html
 COPY . .
