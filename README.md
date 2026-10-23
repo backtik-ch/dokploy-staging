@@ -170,6 +170,38 @@ portées par des Form Requests. Les paquets sont stockés dans la table `depende
 rapport par `dependencies()` ; aucune colonne JSON ne stocke ces données.
 L’historique reste en base et l’affichage ne fait aucun appel réseau.
 
+## Audit horaire des dépendances
+
+Le scheduler existant exécute `dependencies:audit` chaque heure, en arrière-plan,
+sans chevauchement. Chaque projet et chaque image/plateforme utilisent leur dernier
+rapport sur main. Composer et npm, déjà présents dans l’image staging, auditent un
+inventaire temporaire avec `composer audit --locked --format=json` ou
+`npm audit --package-lock-only --json`, sans installation, mise à jour ni script
+de paquet. Les versions installées sont utilisées ; le lock sert de secours si
+la version installée n’a pas été relevée. Une dépendance explicitement absente de
+l’image est exclue. Les copies npm imbriquées de versions différentes sont auditées.
+Les autres gestionnaires ne sont pas audités pour le moment.
+
+Un audit sans résultat ne produit aucune notification. Les vulnérabilités et
+paquets abandonnés détectés sont envoyés à notifications.backtik.ch, avec le projet,
+la dépendance, ses versions, la criticité et le message de l’audit. Un nouveau
+problème est signalé immédiatement, puis au maximum une fois toutes les 24 heures
+s’il persiste. Une erreur d’exécution ou de livraison
+est journalisée et n’empêche pas l’audit des autres images/projets.
+
+Configurez `DEPENDENCY_AUDIT_WEBHOOK_TOKEN` avec la même valeur dans staging et
+notifications, et éventuellement `NOTIFICATIONS_URL` (par défaut
+`https://notifications.backtik.ch`). Dans notifications, configurez
+`KCHAT_DEPENDENCY_AUDITS_CHANNEL_ID` ou laissez-le non défini pour utiliser le canal
+`KCHAT_ALERTS_CHANNEL_ID`. Staging gère la limite de 24 heures dans son cache partagé,
+par projet, dépendance et problème, y compris entre les builds et plateformes.
+Le délai démarre après un envoi réussi. Notifications se limite à valider et envoyer
+le message ; il ne gère aucun historique ni délai entre les alertes.
+Le service `scheduler` du Compose doit rester actif et utiliser le cache partagé.
+
+Pour lancer un audit manuellement : `php artisan dependencies:audit`, ou
+`php artisan dependencies:audit --project=7` pour un seul projet.
+
 ## Projets et maintenance
 
 Un projet s’ouvre sur une **vue d’ensemble**. La navigation sépare **Vue d’ensemble**, **Stagings**, **Dépendances** et **Réglages**, avec le même titre et les mêmes boutons dans chaque onglet. Les stagings sont disponibles pour tous les projets, sans interrupteur d’activation. La configuration GitHub / Docker Compose peut être renseignée plus tard ; elle doit être complète pour créer un staging.

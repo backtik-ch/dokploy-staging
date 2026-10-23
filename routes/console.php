@@ -1,10 +1,18 @@
 <?php
 
+use App\Console\Commands\AuditDependencies;
 use App\Models\Staging;
 use App\Services\DeployService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schedule;
+
+Schedule::command(AuditDependencies::class)
+    ->hourly()
+    ->withoutOverlapping(120)
+    ->onOneServer()
+    ->runInBackground();
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
