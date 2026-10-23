@@ -44,6 +44,8 @@ RUN apt-get update && apt-get install -y \
 # https://github.com/docker-library/docs/tree/master/php#configuration
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
+RUN printf 'session.upload_progress.enabled=0\n' > /usr/local/etc/php/conf.d/99-session.ini
+
 # Copy the app files from the app directory.
 WORKDIR /var/www/html
 COPY . .
