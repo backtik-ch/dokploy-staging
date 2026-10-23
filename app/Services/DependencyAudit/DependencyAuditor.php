@@ -13,42 +13,42 @@ class DependencyAuditor
 {
     public function __construct(private readonly Filesystem $files) {}
 
-    /** @return array<int, array<string, mixed>> */
-    public function audit(DependencyReport $report): array
+    /** @return array<string, array<int, DependencyReportPackage>> */
+    public function inventories(DependencyReport $report): array
     {
         $inventories = [];
         foreach ($report->dependencies as $package) {
-            $manager = $package->manager ?: match (true) {
-                str_starts_with(strtolower($report->language_version), 'php') => 'composer',
-                preg_match('/^node(?:\.js|js|\s|$)/i', $report->language_version) === 1 => 'npm',
-                default => null,
-            };
+            $manager = $package->auditManager($report->language_version);
 
             if (! in_array($manager, ['composer', 'npm'], true)) {
                 continue;
             }
 
-            $version = $package->installation_observed ? $package->installed : ($package->lock_observed ? $package->locked : null);
+            $version = $package->auditVersion();
             if ($version === null) {
                 continue;
             }
 
-            $inventories[$manager][$package->name.'@'.$version] = $package;
+            $inventories[$manager][] = $package;
         }
 
-        $findings = [];
-        foreach ($inventories as $manager => $packages) {
-            $directory = sys_get_temp_dir().'/dependency-audit-'.Str::uuid();
-            $this->files->makeDirectory($directory, 0700);
+        return $inventories;
+    }
 
-            try {
-                $findings = [...$findings, ...$this->auditInventory($manager, array_values($packages), $directory)];
-            } finally {
-                $this->files->deleteDirectory($directory);
-            }
+    /**
+     * @param  array<int, DependencyReportPackage>  $packages
+     * @return array<int, array<string, mixed>>
+     */
+    public function auditPackages(string $manager, array $packages): array
+    {
+        $directory = sys_get_temp_dir().'/dependency-audit-'.Str::uuid();
+        $this->files->makeDirectory($directory, 0700);
+
+        try {
+            return $this->auditInventory($manager, $packages, $directory);
+        } finally {
+            $this->files->deleteDirectory($directory);
         }
-
-        return $findings;
     }
 
     /**
@@ -58,8 +58,8 @@ class DependencyAuditor
     private function auditInventory(string $manager, array $packages, string $directory): array
     {
         $inventory = [];
-        foreach ($packages as $package) {
-            $version = $package->installation_observed ? $package->installed : $package->locked;
+        foreach (collect($packages)->unique(fn (DependencyReportPackage $package): string => $package->name.'@'.$package->auditVersion()) as $package) {
+            $version = $package->auditVersion();
             $inventory[] = ['name' => $package->name, 'version' => $version];
         }
 

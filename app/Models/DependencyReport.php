@@ -27,15 +27,25 @@ class DependencyReport extends Model
         return $this->hasMany(DependencyReportPackage::class);
     }
 
+    public function audits(): HasMany
+    {
+        return $this->hasMany(DependencyAudit::class);
+    }
+
     public function comparisonRows(): array
     {
         return $this->dependencies->map(function (DependencyReportPackage $package): array {
             $dependency = $package->comparisonData();
             $dev = (bool) ($dependency['dev'] ?? false);
+            $findings = $package->auditFindings->sortByDesc(fn (DependencyAuditFinding $finding): int => DependencyAuditFinding::severityRank($finding->severity));
+            $severity = $findings->first()?->severity;
+            $manager = $package->auditManager($this->language_version);
+            $audit = $this->audits->firstWhere('manager', $manager);
 
             return [
+                'id' => $package->id,
                 'name' => $dependency['name'],
-                'manager' => $dependency['manager'] ?? null,
+                'manager' => $manager,
                 'path' => $dependency['path'] ?? null,
                 'required' => $dependency['required'] ?? '—',
                 'locked' => $dependency['locked'] ?? '—',
@@ -43,8 +53,21 @@ class DependencyReport extends Model
                 'dev' => $dev,
                 'direct' => (bool) ($dependency['direct'] ?? true),
                 'build_status' => self::comparisonStatus($dependency, $dev),
+                'risks' => $findings->map(fn (DependencyAuditFinding $finding): array => [
+                    'severity' => DependencyAuditFinding::severityLabel($finding->severity),
+                    'color' => DependencyAuditFinding::severityColor($finding->severity),
+                    'message' => $finding->message, 'url' => $finding->url,
+                ])->values()->all(),
+                'risk_count' => $findings->count(),
+                'risk_rank' => $severity ? DependencyAuditFinding::severityRank($severity) : 0,
+                'risk_label' => $severity ? DependencyAuditFinding::severityLabel($severity)
+                    : ($audit?->error ? 'Audit en erreur' : ($package->audited_at ? 'Aucun risque détecté' : ($package->auditVersion() === null ? 'Non concernée' : 'Non auditée'))),
+                'risk_color' => $severity ? DependencyAuditFinding::severityColor($severity) : ($audit?->error ? 'warning' : ($package->audited_at ? 'success' : 'gray')),
+                'audited_at' => $package->audited_at?->format('d/m/Y H:i'),
+                'audit_version' => $package->auditVersion(),
+                'audit_source' => $package->installation_observed ? 'Image' : 'Lock',
             ];
-        })->sortBy(fn (array $row): string => ($row['dev'] ? '2' : ($row['direct'] ? '0' : '1')).$row['name'])->values()->all();
+        })->sortBy(fn (array $row): string => (6 - $row['risk_rank']).($row['dev'] ? '2' : ($row['direct'] ? '0' : '1')).$row['name'])->values()->all();
     }
 
     private static function comparisonStatus(array $dependency, bool $dev): string

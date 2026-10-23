@@ -108,7 +108,7 @@ class Project extends Model
 
     public function latestDependencyReportsByImage(): Collection
     {
-        return $this->dependencyReports()->with('dependencies')->where('branch', 'main')->whereNotExists(function ($query): void {
+        return $this->dependencyReports()->with(['dependencies.auditFindings', 'audits'])->where('branch', 'main')->whereNotExists(function ($query): void {
             $query->selectRaw('1')->from('dependency_reports as newer')
                 ->whereColumn('newer.project_id', 'dependency_reports.project_id')
                 ->whereColumn('newer.image', 'dependency_reports.image')

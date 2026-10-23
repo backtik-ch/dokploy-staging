@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Projects\Pages;
 use App\Filament\Resources\Projects\Pages\Concerns\HasProjectHeader;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\DependencyReport;
+use Filament\Actions\Action;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
 use Filament\Support\Enums\FontFamily;
@@ -12,6 +13,7 @@ use Filament\Support\Enums\FontWeight;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -35,8 +37,8 @@ class ViewProjectDependencies extends Page implements HasTable
     #[Url]
     public ?string $image = null;
 
-    #[Url(except: 'direct')]
-    public string $scope = 'direct';
+    #[Url(except: 'all')]
+    public string $scope = 'all';
 
     public function mount(int|string $record): void
     {
@@ -60,13 +62,15 @@ class ViewProjectDependencies extends Page implements HasTable
     #[Computed]
     public function rows(): Collection
     {
-        return collect($this->report?->comparisonRows() ?? []);
+        return collect($this->report?->comparisonRows() ?? [])
+            ->map(fn (array $row): array => ['__key' => (string) $row['id'], ...$row]);
     }
 
     #[Computed]
     public function scopes(): array
     {
         return [
+            'risks' => ['label' => 'À risques', 'count' => $this->rowsForScope('risks')->count()],
             'direct' => ['label' => 'Directes', 'count' => $this->rowsForScope('direct')->count()],
             'transitive' => ['label' => 'Transitives', 'count' => $this->rowsForScope('transitive')->count()],
             'dev' => ['label' => 'Développement', 'count' => $this->rowsForScope('dev')->count()],
@@ -90,8 +94,12 @@ class ViewProjectDependencies extends Page implements HasTable
     public function table(Table $table): Table
     {
         return $table
-            ->records(function (?string $search, int $page, int $recordsPerPage): LengthAwarePaginator {
+            ->records(function (?string $search, int $page, int $recordsPerPage, ?array $filters): LengthAwarePaginator {
                 $rows = $this->rowsForScope($this->scope);
+
+                if (filled($manager = $filters['manager']['value'] ?? null)) {
+                    $rows = $rows->where('manager', $manager);
+                }
 
                 if (filled($search)) {
                     $terms = preg_split('/\s+/u', mb_strtolower(trim($search)));
@@ -114,6 +122,12 @@ class ViewProjectDependencies extends Page implements HasTable
                 TextColumn::make('name')->label('Dépendance')->weight(FontWeight::Medium)->searchable()
                     ->description(fn (array $record): string => implode(' · ', array_filter([$record['manager'], $record['dev'] ? 'Développement' : null])))
                     ->tooltip(fn (array $record): ?string => $record['path'])->wrap(),
+                TextColumn::make('manager')->label('Écosystème')->badge()->color('gray')
+                    ->formatStateUsing(fn (?string $state): string => $state === 'composer' ? 'Composer' : ($state ?? 'Autre')),
+                TextColumn::make('risk_label')->label('Sécurité')->badge()
+                    ->color(fn (array $record): string => $record['risk_color'])
+                    ->description(fn (array $record): ?string => $record['risk_count'] ? $record['risk_count'].' problème(s)' : null)
+                    ->tooltip(fn (array $record): string => $record['audited_at'] ? 'Dernier audit réussi : '.$record['audited_at'] : 'Aucun audit réussi pour cette dépendance'),
                 TextColumn::make('required')->label('Déclaré')->fontFamily(FontFamily::Mono)
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('locked')->label('Lock')->fontFamily(FontFamily::Mono),
@@ -127,6 +141,19 @@ class ViewProjectDependencies extends Page implements HasTable
                         'Écart avec le lock' => 'Écart',
                         default => $state,
                     }),
+            ])
+            ->filters([
+                SelectFilter::make('manager')->label('Écosystème')
+                    ->options(fn (): array => $this->rows->pluck('manager')->filter()->unique()->mapWithKeys(fn (string $manager): array => [$manager => $manager === 'composer' ? 'Composer (PHP)' : $manager])->all()),
+            ])
+            ->deferFilters(false)
+            ->recordClasses(fn (array $record): ?string => $record['risk_count'] ? 'pd-risk-row' : null)
+            ->recordActions([
+                Action::make('risks')->label('Voir les risques')->icon('heroicon-o-shield-exclamation')
+                    ->visible(fn (array $record): bool => $record['risk_count'] > 0)
+                    ->modalHeading(fn (array $record): string => $record['name'])
+                    ->modalContent(fn (array $record) => view('filament.projects.dependency-risks', ['record' => $record]))
+                    ->modalSubmitAction(false)->modalCancelActionLabel('Fermer'),
             ])
             ->searchPlaceholder('Rechercher une dépendance…')
             ->paginated([25, 50, 100])
@@ -148,6 +175,7 @@ class ViewProjectDependencies extends Page implements HasTable
     protected function rowsForScope(string $scope): Collection
     {
         return $this->rows->filter(fn (array $row): bool => match ($scope) {
+            'risks' => $row['risk_count'] > 0,
             'direct' => $row['direct'] && ! $row['dev'],
             'transitive' => ! $row['direct'] && ! $row['dev'],
             'dev' => $row['dev'],

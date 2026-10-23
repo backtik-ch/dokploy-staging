@@ -27,11 +27,14 @@ class DependencyReportController extends Controller
                 'platform' => $validated['platform'],
             ], $attributes);
 
-            if ($report->wasRecentlyCreated) {
+            $key = fn (array $package): string => json_encode([$package['manager'] ?? '', $package['path'] ?? '', $package['name']]);
+            $known = $report->dependencies()->get(['manager', 'path', 'name'])->mapWithKeys(fn ($package): array => [$key($package->toArray()) => true]);
+            $missing = array_values(array_filter($validated['dependencies'], fn (array $package): bool => ! $known->has($key($package))));
+            if ($missing !== []) {
                 $report->dependencies()->createMany(array_map(fn (array $package): array => $package + [
                     'lock_observed' => array_key_exists('locked', $package),
                     'installation_observed' => array_key_exists('installed', $package),
-                ], $validated['dependencies']));
+                ], $missing));
             }
 
             return $report;

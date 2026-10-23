@@ -3,6 +3,7 @@
         @if ($build = $this->report)
             @php
                 $differences = $this->rows->where('dev', false)->filter(fn ($row) => \App\Filament\Resources\Projects\Pages\ViewProjectDependencies::statusColor($row['build_status']) === 'warning')->count();
+                $riskCount = $this->rows->where('risk_count', '>', 0)->count();
             @endphp
 
             <div class="pd-heading">
@@ -42,6 +43,40 @@
                 </div>
             </x-filament::section>
 
+            <x-filament::section heading="Audit de sécurité" icon="heroicon-o-shield-check" compact>
+                <div class="pd-audit-summary">
+                    <x-filament::badge :color="$riskCount ? 'danger' : 'gray'" :icon="$riskCount ? 'heroicon-o-shield-exclamation' : 'heroicon-o-shield-check'">
+                        {{ $riskCount }} dépendance(s) signalée(s)
+                    </x-filament::badge>
+                    <p class="pd-muted">Contrôle horaire · Les problèmes détectés restent visibles, même lorsqu’une notification est limitée à une fois par 24 h.</p>
+                </div>
+                <div class="pd-audit-managers">
+                    @foreach ($this->rows->pluck('manager')->unique()->filter(fn ($manager) => in_array($manager, ['composer', 'npm'], true)) as $manager)
+                        @php
+                            $audit = $build->audits->firstWhere('manager', $manager);
+                            $managerRows = $this->rows->where('manager', $manager);
+                            $managerRisks = $managerRows->where('risk_count', '>', 0)->count();
+                            $pending = $managerRows->filter(fn ($row) => $row['audit_version'] !== null && $row['audited_at'] === null)->count();
+                        @endphp
+                        <div class="pd-audit-manager">
+                            <div class="pd-summary-meta">
+                                <strong>{{ $manager === 'composer' ? 'Composer · PHP' : 'npm · JavaScript' }}</strong>
+                                <x-filament::badge :color="$audit?->error ? 'warning' : ($managerRisks ? 'danger' : ($audit?->audited_at && ! $pending ? 'success' : 'gray'))">
+                                    {{ $audit?->error ? 'Audit en erreur' : ($managerRisks ? $managerRisks.' à risques' : ($pending ? $pending.' en attente d’audit' : ($audit?->audited_at ? 'Aucun risque détecté' : 'En attente d’audit'))) }}
+                                </x-filament::badge>
+                            </div>
+                            <p class="pd-muted">
+                                {{ $managerRows->count() }} dépendance(s) ·
+                                {{ $audit?->audited_at ? 'Dernier audit réussi : '.$audit->audited_at->format('d/m/Y à H:i') : 'Les résultats apparaîtront après le prochain audit horaire.' }}
+                            </p>
+                            @if ($audit?->error)
+                                <details class="pd-muted"><summary>Afficher l’erreur du dernier audit</summary><p class="pd-audit-error">{{ $audit->error }}</p></details>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            </x-filament::section>
+
             <div class="pd-inventory">
                 <p><strong>{{ $this->rows->count() }}</strong> dépendances répertoriées</p>
                 <x-filament::badge :color="$differences ? 'warning' : 'success'" :icon="$differences ? 'heroicon-o-exclamation-triangle' : 'heroicon-o-check-circle'">
@@ -54,6 +89,7 @@
                     <x-filament::tabs.item
                         :active="$scope === $key"
                         :badge="$category['count']"
+                        :badge-color="$key === 'risks' && $category['count'] ? 'danger' : 'gray'"
                         wire:click="$set('scope', '{{ $key }}')"
                     >
                         {{ $category['label'] }}
@@ -64,7 +100,7 @@
             <div wire:key="dependency-table-{{ $build->id }}">
                 {{ $this->table }}
             </div>
-            <p class="pd-muted pd-help">Les couleurs comparent chaque version au lock du dernier build. Survolez une version pour afficher son statut.</p>
+            <p class="pd-muted pd-help">La colonne Sécurité affiche les résultats d’audit. Image / lock compare les versions. Pour un frontend compilé, les versions npm du lock peuvent être auditées sans Node dans l’image.</p>
 
             <x-filament::section heading="Détails de l’image" icon="heroicon-o-finger-print" collapsible collapsed compact>
                 <dl class="pd-details">
@@ -104,6 +140,11 @@
             .project-dependencies .pd-inventory { justify-content: space-between; }
             .project-dependencies .pd-inventory strong { font-size: 1.125rem; margin-right: .25rem; }
             .project-dependencies .pd-help { margin-top: -1rem; }
+            .project-dependencies .pd-audit-summary { display: grid; justify-items: start; gap: .75rem; margin-bottom: 1rem; }
+            .project-dependencies .pd-audit-managers { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1.25rem; }
+            .project-dependencies .pd-audit-manager { display: grid; align-content: start; gap: .5rem; }
+            .project-dependencies .pd-audit-error { white-space: pre-wrap; overflow-wrap: anywhere; margin-top: .5rem; }
+            .project-dependencies .pd-risk-row > td:first-child { box-shadow: inset 3px 0 0 var(--danger-500); }
             .project-dependencies .pd-details { display: grid; gap: 1rem; }
             .project-dependencies .pd-details > div { display: grid; grid-template-columns: 11rem minmax(0, 1fr); gap: 1rem; font-size: .875rem; }
             .project-dependencies dd { overflow-wrap: anywhere; }

@@ -116,6 +116,16 @@ Les sources automatiques sont :
 - Node.js : `package.json`, `package-lock.json` si présent et les `package.json` des modules installés ; les versions npm imbriquées restent distinctes par chemin.
 - Python : `requirements.txt` si présent et les distributions de l’interpréteur ; seules les contraintes exactes `==` sont traitées comme versions verrouillées.
 
+La collecte npm est indépendante du langage principal : `dependencies_language: php`
+inclut aussi le frontend. Sans Node/node_modules dans l’image finale, ses versions
+sont lues dans `package-lock.json` ou `npm-shrinkwrap.json` du contexte de build
+checkouté. `dependencies_source_path` permet de cibler un autre dossier, par
+exemple `frontend`. Ces entrées ont `manager: npm`, une version `locked`, et aucun
+champ `installed` : staging peut les auditer sans inventer une version installée.
+Il n’est pas nécessaire de changer les projets PHP dont les manifests npm sont à
+la racine du contexte de build. Un nouveau build ou une relance du workflow est
+nécessaire pour transmettre ce nouvel inventaire.
+
 Le mode `send` transmet seulement le JSON existant ; il n’utilise pas Docker et
 ne recalcule pas les versions. Les fichiers sont lus dans l’image finale lors de
 la collecte, sans démarrer l’application. Un
@@ -162,7 +172,9 @@ format Composer au nom : les noms npm simples ou scopés et les noms d’autres
 écosystèmes sont acceptés. Une liste vide est valide.
 
 La réponse contient l’`id` du rapport (HTTP 201, ou 200 pour une répétition).
-Les rapports restent immuables, dédupliqués par projet, image, digest et plateforme.
+Les rapports sont dédupliqués par projet, image, digest et plateforme. Les versions
+déjà reçues restent immuables ; un nouvel envoi peut ajouter des identités de
+dépendances manquantes, notamment npm sur un digest initialement relevé en PHP seul.
 La date de création de l’image détermine le dernier build, indépendamment de
 l’ordre d’arrivée. Les dépendances de développement absentes et les informations
 non relevées sont indiquées séparément. La validation et les autorisations sont
@@ -181,6 +193,13 @@ de paquet. Les versions installées sont utilisées ; le lock sert de secours si
 la version installée n’a pas été relevée. Une dépendance explicitement absente de
 l’image est exclue. Les copies npm imbriquées de versions différentes sont auditées.
 Les autres gestionnaires ne sont pas audités pour le moment.
+
+Composer et npm sont audités séparément : l’échec de l’un ne bloque pas l’autre.
+Le résultat est conservé en base avant toute notification, dans `dependency_audits`
+et `dependency_audit_findings`, reliés au rapport et à chaque paquet concerné.
+Une réussite remplace les résultats précédents de cet écosystème ; un échec garde
+les derniers risques connus et indique la dernière erreur. Aucune colonne JSON
+ne stocke ces résultats.
 
 Un audit sans résultat ne produit aucune notification. Les vulnérabilités et
 paquets abandonnés détectés sont envoyés à notifications.backtik.ch, avec le projet,
@@ -207,6 +226,13 @@ Pour lancer un audit manuellement : `php artisan dependencies:audit`, ou
 Un projet s’ouvre sur une **vue d’ensemble**. La navigation sépare **Vue d’ensemble**, **Stagings**, **Dépendances** et **Réglages**, avec le même titre et les mêmes boutons dans chaque onglet. Les stagings sont disponibles pour tous les projets, sans interrupteur d’activation. La configuration GitHub / Docker Compose peut être renseignée plus tard ; elle doit être complète pour créer un staging.
 
 L’onglet **Dépendances** présente le langage du dernier build sur main. Le tableau compare les versions du lock et de l’image, avec recherche, pagination et catégories directes, transitives ou de développement. Les métadonnées complètes de l’image sont repliées sous le tableau. Si plusieurs images ou plateformes sont suivies, un sélecteur permet de passer de l’une à l’autre.
+
+La colonne **Sécurité** affiche la criticité du dernier audit. Les dépendances
+signalées remontent en tête du tableau et l’onglet **À risques** les isole, y compris
+les dépendances transitives et de développement. Le filtre **Écosystème** sépare
+Composer et npm. **Voir les risques** ouvre le message et le lien de chaque avis.
+Les dates et erreurs d’audit sont visibles séparément pour chaque écosystème ;
+une dépendance jamais auditée n’est pas présentée comme saine.
 
 1. Dans **Connexions Dokploy**, donnez un nom explicite à chaque couple instance/token (par exemple « Production · équipe »). Le sélecteur affiche le nom, l’URL et l’identifiant de connexion, sans exposer le token. Les anciennes connexions restent sélectionnables grâce à leur identifiant.
 2. Dans **Projet → Réglages → Projet**, choisissez cette connexion et, si nécessaire, l’ID du serveur distant. Un serveur vide désigne le serveur local Dokploy.
