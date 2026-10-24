@@ -3,14 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreDependencyReportRequest;
+use App\Http\Resources\DependencyReportReceiptResource;
 use App\Models\DependencyReport;
 use App\Models\Project;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 
 class DependencyReportController extends Controller
 {
-    public function store(StoreDependencyReportRequest $request): JsonResponse
+    public function store(StoreDependencyReportRequest $request): DependencyReportReceiptResource
     {
         $project = $request->project();
         $validated = $request->validated();
@@ -40,6 +40,6 @@ class DependencyReportController extends Controller
             return $report;
         });
 
-        return response()->json(['id' => $report->id], $report->wasRecentlyCreated ? 201 : 200);
+        return new DependencyReportReceiptResource($report);
     }
 }

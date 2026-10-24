@@ -13,7 +13,7 @@ uses(RefreshDatabase::class);
 
 it('loads services with a batch object and queues API deployments until images exist', function (): void {
     config(['app.key' => 'base64:'.base64_encode(random_bytes(32))]);
-    Sanctum::actingAs(User::factory()->create());
+    Sanctum::actingAs(User::factory()->create(), ['*']);
 
     $dokploy = Dokploy::create([
         'base_url' => 'https://dokploy.example.test',

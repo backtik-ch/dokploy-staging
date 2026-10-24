@@ -15,7 +15,7 @@ class DeployService
         private readonly StagingDeletionService $stagingDeletionService,
     ) {}
 
-    public function deploy(Project $project, string $action, string $stagingReference, string $branch, array $selectedBranches = [], bool $deferUntilImagesExist = false): ?Staging
+    public function deploy(Project $project, string $action, string $stagingReference, string $branch, ?array $selectedBranches = null, bool $deferUntilImagesExist = false): ?Staging
     {
         if ($action === 'create' && ! $project->hasStagingConfiguration()) {
             throw \Illuminate\Validation\ValidationException::withMessages([
@@ -33,16 +33,18 @@ class DeployService
                 'pr_number' => $stagingReference,
             ])->first();
 
+            $selectedBranches ??= $staging?->selected_branches ?? [];
+
             if ($action === 'create') {
 
                 if ($staging) {
                     $this->updateCompose($project, $staging->compose_id, $branch);
-                    $env = $this->injectEnvVars($project, $staging->compose_id, $stagingReference, $branch, $selectedBranches ?: ($staging->selected_branches ?? []));
+                    $env = $this->injectEnvVars($project, $staging->compose_id, $stagingReference, $branch, $selectedBranches);
 
                     $staging->update([
                         'branch' => $branch,
                         'environment' => $env,
-                        'selected_branches' => $selectedBranches ?: ($staging->selected_branches ?? []),
+                        'selected_branches' => $selectedBranches,
                     ]);
 
                     if ($deferUntilImagesExist) {
@@ -315,7 +317,7 @@ class DeployService
             ],
         ]);
 
-        foreach ($project->extra_sub_domains as $extra) {
+        foreach ($project->extra_sub_domains ?? [] as $extra) {
             $this->post($project, 'domain.create', [
                 '0' => [
                     'json' => $basePayload + [

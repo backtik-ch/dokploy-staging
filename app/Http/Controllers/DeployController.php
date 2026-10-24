@@ -2,21 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Api\DeployStagingRequest;
+use App\Http\Requests\Api\RemoveStagingRequest;
 use App\Services\DeployService;
-use Illuminate\Http\Request;
 
 class DeployController extends Controller
 {
-    public function deploy(Request $request)
+    public function deploy(DeployStagingRequest $request)
     {
-        $validated = $request->validate([
-            'project_id' => 'required|int|exists:projects,id',
-            'staging_reference' => 'nullable|string|max:255|required_without:pr_number',
-            'pr_number' => 'nullable|string|max:255|required_without:staging_reference',
-            'branch' => 'required|string|max:255',
-            'selected_branches' => 'nullable|array',
-            'selected_branches.*' => 'nullable|string|max:255',
-        ]);
+        $validated = $request->validated();
 
         $reference = (string) ($validated['staging_reference'] ?? $validated['pr_number']);
 
@@ -25,18 +19,14 @@ class DeployController extends Controller
             'create',
             $reference,
             $validated['branch'],
-            $validated['selected_branches'] ?? [],
+            $validated['selected_branches'] ?? null,
             true,
         );
     }
 
-    public function delete(Request $request)
+    public function delete(RemoveStagingRequest $request)
     {
-        $validated = $request->validate([
-            'project_id' => 'required|int|exists:projects,id',
-            'staging_reference' => 'nullable|string|max:255|required_without:pr_number',
-            'pr_number' => 'nullable|string|max:255|required_without:staging_reference',
-        ]);
+        $validated = $request->validated();
 
         $reference = (string) ($validated['staging_reference'] ?? $validated['pr_number']);
 

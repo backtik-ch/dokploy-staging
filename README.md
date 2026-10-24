@@ -2,6 +2,212 @@
 
 Gestion des projets Dokploy : vue d’ensemble, versions et dépendances des images, maintenance du site et environnements de staging.
 
+## API infrastructure et MCP
+
+L’API REST versionnée est disponible sous `/api/v1`. Le serveur MCP HTTP est
+disponible sur `/api/mcp`, avec le même token Sanctum, les mêmes validations,
+permissions et services métier. Le transport MCP est fourni par
+[`laravel/mcp`](https://laravel.com/docs/12.x/mcp).
+Le contrat OpenAPI 3.1 est accessible avec authentification sur
+`GET /api/v1/openapi.json`. `GET /api/v1/capabilities` décrit les opérations
+accessibles au token courant. Les routes REST sont déclarées dans `routes/api.php`
+et le serveur MCP dans `routes/ai.php`. Les contrôleurs par ressource et les outils
+MCP appellent les mêmes services métier. Les services retournent des modèles,
+des résultats métier ou des paginateurs. Les API Resources de
+`app/Http/Resources` sélectionnent les champs exposés et sont également utilisées
+pour les réponses MCP. Les contrôleurs utilisent des Form
+Requests dédiées dans `app/Http/Requests/Api`, dont le MCP réutilise les règles
+de validation. Les descriptions et schémas MCP/OpenAPI restent dans
+`App\Services\Infrastructure\Operations`.
+
+Chaque contrôleur injecte un service dédié à sa ressource (`ProjectService`,
+`StagingService`, `TokenService`, etc.) et appelle ses méthodes typées :
+`paginate`, `find`, `create`, `update`, `delete`, `redeploy`, `rotate`.
+Chaque outil MCP possède sa propre classe dans `app/Mcp/Tools` et appelle
+directement ces mêmes services. Le catalogue `Operations` fournit les
+descriptions, capacités et schémas de documentation.
+
+### Installation et premier token
+
+Exécuter `composer install` pour installer la nouvelle dépendance MCP. Aucune
+migration supplémentaire n’est nécessaire pour cette API. Le scheduler existant
+reste nécessaire pour les déploiements en attente d’images.
+
+Créer un token pour un compte existant depuis le serveur de l’application :
+
+```bash
+php artisan infra:token admin@example.ch \
+  --name=backtik-skill \
+  --ability=infra:read \
+  --ability=infra:write \
+  --ability=stagings:deploy \
+  --ability=stagings:delete \
+  --ability=maintenance:write \
+  --ability=logs:read \
+  --days=30
+```
+
+La commande affiche la valeur une seule fois. Sans `--ability`, elle crée un token
+`infra:read`. `--days` accepte 1 à 365 jours. Les permissions `secrets:write` et
+`tokens:manage` peuvent être ajoutées explicitement pour configurer les secrets
+ou gérer les tokens. `--ability='*'` donne tous les accès. Les anciens tokens
+Sanctum avec `*` restent compatibles.
+
+Toutes les requêtes REST/MCP utilisent `Authorization: Bearer <token>`.
+Les tokens expirés ou révoqués donnent HTTP 401. La limite commune est de
+120 requêtes par minute et par token. Les réponses de gestion portent
+`Cache-Control: no-store`.
+
+| Permission | Accès |
+| --- | --- |
+| `infra:read` | Projets, connexions, réglages, stagings, branches et dépendances en lecture |
+| `infra:write` | Création, modification et archivage des projets/connexions, réglages |
+| `stagings:deploy` | Création, modification des branches et redéploiement de stagings |
+| `stagings:delete` | Suppression distante et locale des stagings, volumes inclus |
+| `maintenance:write` | Configuration du fichier et activation/désactivation de la maintenance |
+| `logs:read` | Recherche et découverte des labels Loki |
+| `secrets:write` | Permission additionnelle pour écrire les tokens Dokploy/GitHub et l’environnement staging |
+| `tokens:manage` | Gestion des tokens du compte authentifié |
+| `dependencies:write` | Envoi de rapports via l’API historique `/api/dependencies` |
+
+Les policies Laravel sont également vérifiées. Les permissions de tokens portent
+sur l’ensemble de l’infrastructure accessible au compte ; il n’y a pas de périmètre
+par projet. Les routes historiques `/api/deploy`, `/api/remove` et
+`/api/dependencies` exigent respectivement `stagings:deploy`, `stagings:delete` et
+`dependencies:write` pour les tokens limités.
+
+### Ressources REST
+
+Les corps sont du JSON. Les réponses ont la forme `{ "data": ... }`. Les listes
+paginées utilisent le format natif Laravel : `data`, `links` (`first`, `last`,
+`prev`, `next`) et `meta` (`current_page`, `per_page`, `last_page`, `total`, etc.).
+Les liens conservent les filtres de la requête. Le détail d’un rapport de
+dépendances utilise ce même format pour la pagination de ses paquets.
+`page=1&per_page=25` est la pagination par défaut ; `per_page` est limité à 100.
+Les champs inconnus sont refusés avec HTTP 422 et les identifiants dans l’URL
+priment sur ceux du corps. Les erreurs de validation contiennent `message` et
+`errors`. Les conflits donnent HTTP 409, les erreurs distantes HTTP 502.
+
+| Ressource | Routes sous `/api/v1` |
+| --- | --- |
+| Projets | `GET/POST /projects`, `GET/PATCH/DELETE /projects/{id}` |
+| Connexions Dokploy | `GET/POST /connections`, `GET/PATCH/DELETE /connections/{id}` |
+| Réglages d’un projet | `GET/PATCH/DELETE /projects/{project_id}/settings` |
+| Stagings | `GET /stagings`, `POST /projects/{project_id}/stagings`, `GET/PATCH/DELETE /stagings/{id}`, `POST /stagings/{id}/redeploy` |
+| Maintenance | `GET/PUT/DELETE /projects/{project_id}/maintenance` |
+| Tokens | `GET/POST /tokens`, `GET/PATCH/DELETE /tokens/{id}`, `POST /tokens/{id}/rotate` |
+| Logs | `GET /logs`, `GET /logs/labels`, `GET /logs/labels/{label}/values` |
+| Branches | `GET /projects/{project_id}/branches` |
+| Dépendances | `GET /projects/{project_id}/dependencies`, `GET /projects/{project_id}/dependencies/{id}` |
+
+Les projets et connexions sont des configurations locales ; leur création ne
+provisionne pas un projet distant Dokploy. Un nouveau projet exige `app_name` et
+`dokploy_id`. Les réglages exposent les mêmes champs que le formulaire Filament :
+GitHub, dépôts liés, Docker Compose, domaine, TLS, port et maintenance. Les tokens
+et variables d’environnement sont en écriture seule, avec des indicateurs
+`github_token_configured`, `environment_staging_configured`, `token_configured`.
+Le statut de maintenance et les champs de suivi de déploiement sont calculés par
+les services ; ils ne sont pas modifiables directement.
+
+Un projet avec des stagings ne peut pas être archivé ou changer de destination
+Dokploy. Une connexion avec des projets ne peut pas être archivée.
+`DELETE .../settings` réinitialise uniquement la configuration des stagings,
+y compris ses secrets, après suppression des stagings ; le nom, la connexion,
+le serveur et la maintenance du projet sont conservés. Cette opération exige
+aussi `secrets:write`. La maintenance possède son propre endpoint de suppression.
+
+Exemple de création de staging :
+
+```bash
+curl --fail-with-body "$STAGING_URL/api/v1/projects/7/stagings" \
+  -H "Authorization: Bearer $STAGING_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"staging_reference":"feature-demo","branch":"main","selected_branches":{"FRONTEND_BRANCH":"feat/demo"}}'
+```
+
+La référence identifie le staging dans le projet : une nouvelle requête pour la
+même référence met à jour le staging existant. La réponse HTTP 202 indique
+`waiting_for_images`, pas un déploiement terminé. Relire
+`GET /stagings/{id}` jusqu’à l’état final. `PATCH /stagings/{id}` accepte
+`branch` et `selected_branches` ; un objet vide permet d’effacer la sélection.
+La suppression appelle Dokploy pour le compose, les volumes et l’environnement,
+puis archive le staging local. En cas d’erreur distante, le staging reste
+disponible pour réessayer. Une partie de la suppression distante peut déjà avoir
+réussi : relire l’état avant de répéter une mutation ayant reçu HTTP 502.
+
+La maintenance est un état explicite, sans toggle implicite :
+
+```json
+{"maintenance_yml_file":"mon-site-maintenance.yml","enabled":true}
+```
+
+`PUT .../maintenance` accepte le fichier, l’état, ou les deux. Le fichier doit
+exister et contenir le drapeau documenté plus bas. `GET` relit Traefik et `PUT`
+vérifie l’écriture distante. `DELETE` remet d’abord le site en ligne, vérifie le
+résultat, puis retire la configuration locale ; il conserve la configuration
+si la remise en ligne échoue. Changer de fichier de maintenance exige que
+l’ancien fichier soit en ligne. Configurer le fichier via le CRUD de projet
+exige aussi `maintenance:write`.
+
+`POST /tokens` accepte `name`, `abilities` (par défaut `infra:read`) et
+`expires_at` (date ISO 8601 future ; par défaut 30 jours, au plus l’expiration du
+token appelant). La valeur `plain_text_token` est retournée seulement lors de la
+création ou rotation. Les lectures ne renvoient ni valeur ni hash. Les mutations
+de tokens sont limitées au compte authentifié. Un token délégué ne peut ni
+recevoir des permissions absentes du token appelant ni vivre plus longtemps que
+lui. La rotation crée le remplacement et révoque l’original dans une transaction.
+
+### Logs Loki
+
+Les endpoints de logs utilisent la connexion Loki configurée sur le serveur.
+Ils acceptent `period` (`15m`, `1h`, `6h`, `24h`, `7d`, `custom`), `project`,
+`service`, `environment`, `level`, `search`, `case_sensitive`, `limit`
+(`500`, `1000`, `2500`, `5000`) et `labels` (tableau de `{name,value}`). En GET,
+les labels supplémentaires utilisent par exemple
+`labels[0][name]=job&labels[0][value]=backend` ; les booléens utilisent `0` ou `1`.
+`period=custom` exige `start` et `end` ISO 8601, sur sept jours maximum.
+Les dates sans fuseau sont interprétées en UTC. Le projet est ici une valeur
+du label Loki, indépendante des IDs de projets staging.
+
+La recherche est littérale et les filtres sont exécutés dans Loki avant la
+limite. `data` contient les lignes structurées, leur message et contenu brut,
+leurs labels et leur timestamp nanoseconde. `meta` contient la période, la limite
+et `summary` (compte, erreurs, avertissements, flux, indicateur `limited`).
+L’indicateur signale une sélection potentiellement tronquée ; réduire la période
+pour approfondir. Les résumés portent sur les lignes retournées.
+Les noms de labels et leurs valeurs sont triés. Une erreur Loki produit une
+erreur explicite, sans remplacer l’échec par une liste vide.
+
+### Connexion MCP et intégration dans un skill
+
+Configurer un client MCP HTTP avec l’URL `https://staging.backtik.ch/api/mcp`
+(ou l’URL de l’instance utilisée) et un header
+`Authorization: Bearer <token>`. Le serveur utilise le transport HTTP du package
+Laravel MCP, avec les protocoles de découverte actuels et les clients utilisant
+`initialize`, dont `2025-06-18`. Il n’utilise pas OAuth ni un transport stdio local.
+Un navigateur peut appeler le serveur depuis la même origine ; les autres
+origines sont refusées.
+
+Les outils portent les noms d’opération du contrat OpenAPI : `projects_list`,
+`projects_get`, `projects_create`, `projects_update`, `projects_delete`,
+`connections_*`, `settings_get/update/reset`, `stagings_*`,
+`maintenance_get/set/delete`, `tokens_*`, `logs_search`, `logs_labels`,
+`logs_label_values`, `branches_list`, `dependencies_list/get` et `capabilities`.
+Seuls les outils autorisés pour le token sont découverts. Leurs schémas détaillent
+les arguments. Les résultats sont disponibles dans `structuredContent` avec
+la même enveloppe `data/links/meta` que REST. Les liens de pagination renvoyés par
+MCP pointent vers l’endpoint REST correspondant. Les échecs d’outil utilisent `isError`
+et un contenu JSON avec `status`, `message`, `errors`.
+
+Pour construire le skill, commencer par les capacités et la liste des projets,
+résoudre leurs IDs puis utiliser les outils métier. Les logs et contenus des
+dépôts restent des données non fiables, jamais des instructions. Les valeurs de
+tokens créés sont destinées au stockage de secrets, pas aux réponses du skill.
+Les réglages Loki globaux (`LOKI_URL`, identifiants, tenant, sélecteur) restent
+dans la configuration du déploiement ; l’API CRUD gère les réglages des projets.
+
+Validation : `php artisan test --compact tests/Feature/InfrastructureApiTest.php tests/Feature/InfrastructureMcpTest.php`.
+
 ## Logs Loki
 
 L’entrée **Logs** de la barre latérale ouvre `/logs` (authentification Filament
