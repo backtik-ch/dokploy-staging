@@ -36,6 +36,19 @@ reste nécessaire pour les déploiements en attente d’images.
 Créer un token pour un compte existant depuis le serveur de l’application :
 
 ```bash
+php artisan make:api-token
+```
+
+La commande propose le compte, le nom du token et sa durée de validité (30 jours
+par défaut, de 1 à 365 jours), puis pose une question **Oui / Non pour chaque
+droit**, avec une explication. Chaque droit est refusé par défaut ; seuls les
+droits explicitement acceptés sont accordés. Si tous sont refusés, aucun token
+n’est créé. La valeur du token est affichée une seule fois à la fin.
+
+Pour les scripts et les exécutions sans interaction, la commande à options reste
+disponible :
+
+```bash
 php artisan infra:token admin@example.ch \
   --name=backtik-skill \
   --ability=infra:read \
@@ -57,6 +70,22 @@ Toutes les requêtes REST/MCP utilisent `Authorization: Bearer <token>`.
 Les tokens expirés ou révoqués donnent HTTP 401. La limite commune est de
 120 requêtes par minute et par token. Les réponses de gestion portent
 `Cache-Control: no-store`.
+
+### Utilisateurs et tokens dans l’interface
+
+L’entrée **Utilisateurs** du menu liste les comptes avec leur nombre de tokens.
+Ouvrir un utilisateur affiche uniquement les noms, droits, dates de création,
+expiration et dernière utilisation de ses tokens. Les valeurs et hashes ne sont
+jamais présents dans ces listes. **Révoquer** demande confirmation puis supprime
+immédiatement le token sélectionné ; les autres tokens restent utilisables.
+
+Le bouton **Créer un token** est visible uniquement sur son propre compte.
+Sa modale permet de choisir un nom, une durée de 1 à 365 jours et les droits.
+La valeur générée est affichée une seule fois dans une seconde modale avec un
+bouton de copie. Après fermeture, elle n’est plus consultable. La création pour
+un autre compte est également refusée côté serveur par la policy et le service.
+L’interface permet de révoquer les tokens des comptes listés ; l’API `/api/v1/tokens`
+conserve son périmètre limité au compte du token authentifié.
 
 | Permission | Accès |
 | --- | --- |

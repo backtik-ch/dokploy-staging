@@ -2,16 +2,22 @@
     x-data="{
         token: @js($token),
         copied: false,
-        copy() {
-            navigator.clipboard.writeText(this.token)
-            this.copied = true
-            setTimeout(() => this.copied = false, 2000)
+        copyError: false,
+        async copy() {
+            this.copyError = false
+            try {
+                await navigator.clipboard.writeText(this.token)
+                this.copied = true
+                setTimeout(() => this.copied = false, 2000)
+            } catch {
+                this.copyError = true
+            }
         }
     }"
     style="display: flex; flex-direction: column; gap: 16px;"
 >
     <p style="font-size: 14px; color: #6b7280; margin: 0;">
-        This token will only be shown once. Please copy it now.
+        Ce token est affiché une seule fois. Copiez-le avant de fermer cette fenêtre.
     </p>
 
     <div style="
@@ -35,7 +41,11 @@
                dark:fi-text-color-950 dark:hover:fi-text-color-950
                fi-btn fi-size-md fi-ac-btn-action"
     >
-        <span x-show="!copied">Copy Token</span>
-        <span x-show="copied">Copied ✓</span>
+        <span x-show="!copied">Copier le token</span>
+        <span x-show="copied" x-cloak>Copié ✓</span>
     </button>
+
+    <p x-show="copyError" x-cloak role="alert">
+        Copie automatique indisponible. Sélectionnez le token ci-dessus pour le copier manuellement.
+    </p>
 </div>
